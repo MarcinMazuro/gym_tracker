@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load django_bootstrap5 %}
+{% block title %}Activation Link Sent{% endblock %}
+{% block content %}
+    <div class="text-center">
+        <h1>Please verify your email</h1>
+        <p>Before you can access all features of this site, you need to verify your email address.</p>
+        <p>We have sent an activation link to <strong>{{ user.email }}</strong>. Please check your inbox.</p>
+        
+        {% bootstrap_messages %} {# Display any messages #}
+
+        <hr>
+        <p>If you did not receive the email, you can <a href="{% url 'accounts:resend_activation_email' %}">resend the activation email</a>.</p>
+    </div>
+{% endblock %}
