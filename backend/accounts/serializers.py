@@ -26,6 +26,17 @@ class RegisterSerializer(BaseRegisterSerializer):
     4. django-allauth automatically sends verification email
     """
     
+    def validate_email(self, email):
+        """
+        Check that email is unique before allowing registration.
+        """
+        email = email.lower()  # Normalize email to lowercase
+        if User.objects.filter(email__iexact=email).exists():
+            raise serializers.ValidationError(
+                "A user with that email already exists."
+            )
+        return email
+    
     def save(self, request):
         """
         Create and return a new user instance.

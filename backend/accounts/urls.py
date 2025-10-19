@@ -1,8 +1,8 @@
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 
-app_name = 'accounts'
 
+app_name = 'accounts'
 urlpatterns = [
     # dj-rest-auth provides these endpoints:
     # POST /login/ - Login with username/email and password, returns JWT tokens
@@ -17,6 +17,10 @@ urlpatterns = [
     # POST /registration/verify-email/ - Verify email with key from email
     # POST /registration/resend-email/ - Resend verification email
     path('auth/registration/', include('dj_rest_auth.registration.urls')),
+    
+    # django-allauth account URLs (required for email verification)
+    # This provides the 'account_confirm_email' URL that allauth needs
+    path('auth/account/', include('allauth.account.urls')),
     
     # JWT token refresh endpoint
     # POST /auth/token/refresh/ - Refresh access token using refresh token

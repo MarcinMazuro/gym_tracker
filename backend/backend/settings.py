@@ -29,7 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-_ue-1y##0dfy(*)7mvyp0j=o8tpdemlaa^n_mup+(j%dv43r+='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True  # Set to True for development to see detailed error pages
 
 ALLOWED_HOSTS = ["*"]
 
@@ -249,9 +249,21 @@ CORS_ALLOWED_ORIGINS = [
 # Allow cookies/auth headers in cross-origin requests
 CORS_ALLOW_CREDENTIALS = True
 
+# Authentication backends
+# allauth backend allows login with email or username
+AUTHENTICATION_BACKENDS = [
+    # Needed for superuser login in admin
+    'django.contrib.auth.backends.ModelBackend',
+    # allauth specific authentication backend for email login
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
 # Allauth configuration
-# Email verification is mandatory - users must verify email before full access
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+# Email verification - options: 'none', 'optional', 'mandatory'
+# 'optional' - emails are sent but users can login without verification
+# 'mandatory' - users MUST verify email before login (requires proper frontend handling)
+# Emails will be printed to console via EMAIL_BACKEND setting below
+ACCOUNT_EMAIL_VERIFICATION = 'optional'
 
 # Email must be unique - one email per account
 ACCOUNT_UNIQUE_EMAIL = True
@@ -310,3 +322,5 @@ REST_AUTH = {
     # Custom Registration serializer
     'REGISTER_SERIALIZER': 'accounts.serializers.RegisterSerializer',
 }
+
+ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
