@@ -1,0 +1,277 @@
+# ============================================================================
+# Python / Django
+# ============================================================================
+
+# Virtual Environment
+backend/venv/
+backend/env/
+backend/ENV/
+.venv/
+venv/
+env/
+
+# Python
+*.py[cod]
+*$py.class
+*.so
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+/static
+
+# Django migrations (optional - uncomment if you don't want to track migrations)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# ============================================================================
+# Node.js / React / React Native
+# ============================================================================
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+mobile/node_modules/
+*/node_modules/
+
+# Production builds
+frontend/dist/
+frontend/build/
+mobile/dist/
+mobile/build/
+
+# Testing
+coverage/
+.nyc_output
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Parcel cache
+.cache
+.parcel-cache
+
+# Next.js (if you add it later)
+.next/
+out/
+
+# Nuxt.js (if you add it later)
+.nuxt/
+
+# Gatsby files
+.cache/
+public
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ============================================================================
+# React Native specific
+# ============================================================================
+
+# Expo
+mobile/.expo/
+mobile/.expo-shared/
+.expo/
+.expo-shared/
+
+# Metro bundler
+.metro-health-check*
+
+# OSX
+.DS_Store
+
+# Android
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/.idea/
+mobile/android/*.iml
+*.apk
+*.aab
+
+# iOS
+mobile/ios/Pods/
+mobile/ios/build/
+mobile/ios/*.xcworkspace/xcuserdata/
+mobile/ios/*.xcodeproj/xcuserdata/
+mobile/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+mobile/ios/Podfile.lock
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Fastlane
+mobile/ios/fastlane/report.xml
+mobile/ios/fastlane/Preview.html
+mobile/android/fastlane/report.xml
+mobile/android/fastlane/Preview.html
+
+# Bundle artifact
+*.jsbundle
+
+# CocoaPods
+mobile/ios/Pods/
+
+# ============================================================================
+# General
+# ============================================================================
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Backup files
+*.bak
+*.backup
+
+# Logs
+logs/
+*.log
+
+# Lock files (optional - some teams prefer to track these)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ============================================================================
+# Project specific
+# ============================================================================
+
+# PostgreSQL dumps
+*.sql
+*.dump
+
+# Redis dumps
+dump.rdb
+
+# Certificates
+*.pem
+*.key
+*.crt
+
+# Documentation builds
+docs/_build/
+site/
+
+# Test coverage
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
