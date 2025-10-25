@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { authApi } from '@/api/auth';
 import { storage } from '@/utils/storage';
@@ -32,11 +32,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     //Check if user is authenticated on mount
     //Restores session from localStorage
-    const checkAuth = async () => {
+    const checkAuth = useCallback(async () => {
         setIsLoading(true);
         try {
             //Check if we have a token
-            const hasToken = storage.isAuthenticated();
+            const hasToken = storage.getAccessToken();
 
             if (hasToken) {
                 //Try to get current user from API
@@ -46,6 +46,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                 setIsAuthenticated(true);
             } else {
                 //No token - user is not logged in
+                storage.clearAuth(); // Ensure everything is cleared
                 setUser(null);
                 setIsAuthenticated(false);
             }
@@ -58,10 +59,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     //Login user
-    const login = async (credentials: LoginCredentials) => {
+    const login = useCallback(async (credentials: LoginCredentials) => {
         setIsLoading(true);
         try {
             const { user: userData } = await authApi.login(credentials);
@@ -73,10 +74,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     //Register new user
-    const register = async (data: RegisterData) => {
+    const register = useCallback(async (data: RegisterData) => {
         setIsLoading(true);
         try {
             const { user: userData } = await authApi.register(data);
@@ -88,11 +89,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    
+
     //Logout user
-    const logout = async () => {
+    const logout = useCallback(async () => {
         setIsLoading(true);
         try {
             await authApi.logout();
@@ -103,12 +104,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setIsAuthenticated(false);
             setIsLoading(false);
         }
-    };
+    }, []);
 
     //Check auth on component mount
     useEffect(() => {
         checkAuth();
-    }, []);
+    }, [checkAuth]);
 
     //Context value
     const value: AuthContextType = {

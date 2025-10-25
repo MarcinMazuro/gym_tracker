@@ -57,7 +57,7 @@ export const clearAuth = (): void => {
 
 //Check if user is authenticated
 export const isAuthenticated = (): boolean => {
-    return getAccessToken !== null;
+    return getAccessToken() !== null;
 };
 
 //Storage utility object

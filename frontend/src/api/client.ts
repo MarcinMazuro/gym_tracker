@@ -61,9 +61,8 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
         
       } catch (refreshError) {
-        // Refresh failed - clear auth and redirect to login
+        // Refresh failed - clear auth and reject the promise
         storage.clearAuth();
-        window.location.href = '/login';
         return Promise.reject(refreshError);
       }
     }
