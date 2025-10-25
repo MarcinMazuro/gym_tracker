@@ -3,7 +3,6 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { GuestRoute } from '@/components/common/GuestRoute';
 
-// Pages (we'll create these next)
 import LoginPage from '@/pages/LoginPage';
 import RegisterPage from '@/pages/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
@@ -11,6 +10,7 @@ import VerifyEmailPage from '@/pages/VerifyEmailPage';
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
+import ErrorPage from './pages/ErrorPage';
 
 function App() {
   return (
@@ -72,7 +72,7 @@ function App() {
           />
 
           {/* 404 - Not found */}
-          <Route path="*" element={<div>404 - Page Not Found</div>} />
+          <Route path="*" element={<ErrorPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
