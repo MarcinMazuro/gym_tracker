@@ -79,7 +79,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -274,6 +274,9 @@ FRONTEND_URL = 'http://localhost:5173'
 # Emails will be printed to console via EMAIL_BACKEND setting below
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 
+# Users must confirm their email to be considered active
+ACCOUNT_EMAIL_REQUIRED = True
+
 # This setting is used to build the verification URL
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
 
@@ -307,7 +310,7 @@ ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # dj-rest-auth configuration
-# Configure dj-rest-auth to use JWT instead of regular tokens
+# Configure dj-rest_auth to use JWT instead of regular tokens
 REST_AUTH = {
     # Use JWT for authentication
     'USE_JWT': True,
@@ -333,4 +336,8 @@ REST_AUTH = {
     
     # Custom Registration serializer
     'REGISTER_SERIALIZER': 'accounts.serializers.RegisterSerializer',
+
+    # Custom serializer for email verification to handle frontend flow
+    'REGISTER_SERIALIZER': 'accounts.serializers.RegisterSerializer',
+    'VERIFY_EMAIL_SERIALIZER': 'allauth.account.serializers.VerifyEmailSerializer',
 }

@@ -72,9 +72,9 @@ export const authApi = {
 
 
     //Verify email address
-    //POST /auth/account-confirm-email/
+    //POST /auth/registration/verify-email/
     verifyEmail: async (key: string): Promise<void> => {
-        await apiClient.post('/auth/account-confirm-email/', { key });
+        await apiClient.post('/auth/registration/verify-email/', { key });
     },
 
 
