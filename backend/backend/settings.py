@@ -244,6 +244,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",      # React development server
     "http://127.0.0.1:3000",      # Alternative localhost
     "http://localhost:19006",     # React Native Expo
+    "http://localhost:5173"
 ]
 
 # Allow cookies/auth headers in cross-origin requests
