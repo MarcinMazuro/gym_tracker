@@ -337,7 +337,6 @@ REST_AUTH = {
     # Custom Registration serializer
     'REGISTER_SERIALIZER': 'accounts.serializers.RegisterSerializer',
 
-    # Custom serializer for email verification to handle frontend flow
-    'REGISTER_SERIALIZER': 'accounts.serializers.RegisterSerializer',
-    'VERIFY_EMAIL_SERIALIZER': 'allauth.account.serializers.VerifyEmailSerializer',
+    # Custom serializer for password reset
+    'PASSWORD_RESET_SERIALIZER': 'accounts.serializers.CustomPasswordResetSerializer',
 }

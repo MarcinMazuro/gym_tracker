@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from dj_rest_auth.registration.serializers import RegisterSerializer as BaseRegisterSerializer
+from dj_rest_auth.serializers import PasswordResetSerializer
+from allauth.account.forms import ResetPasswordForm
+from django.conf import settings
 
 # Get our CustomUser model
 User = get_user_model()
@@ -72,6 +75,15 @@ class UserSerializer(serializers.ModelSerializer):
     - Provides default create() and update() methods
     """
     
+    email_verified = serializers.SerializerMethodField()
+
+    def get_email_verified(self, obj):
+        try:
+            from allauth.account.models import EmailAddress
+            return EmailAddress.objects.filter(user=obj, email=obj.email, verified=True).exists()
+        except Exception:
+            return False
+
     class Meta:
         model = User
         
@@ -82,8 +94,57 @@ class UserSerializer(serializers.ModelSerializer):
             'email',        # Email address
             'first_name',   # Optional first name
             'last_name',    # Optional last name
+            'email_verified', # Whether primary email is verified
         ]
         
         # Fields that cannot be modified via API
         # (id and email should not change after creation)
-        read_only_fields = ['id', 'email']
+        read_only_fields = ['id', 'email', 'email_verified']
+
+
+class CustomPasswordResetSerializer(PasswordResetSerializer):
+    """
+    Custom serializer for password reset that:
+    - forces building a frontend URL in the e-mail, and
+    - keeps `reset_form` populated so a custom view can extract uid/token.
+    """
+
+    def get_email_options(self):
+        # Build a custom URL that points to the frontend route and includes uid-token
+        from allauth.account.utils import user_pk_to_url_str
+        from allauth.account.forms import default_token_generator
+
+        # Initialize holders
+        self._last_uid = None
+        self._last_temp_key = None
+        self._last_password_reset_url = None
+
+        def frontend_url_generator(request, user, temp_key):
+            uid = user_pk_to_url_str(user)
+            url = f"{settings.FRONTEND_URL}/reset-password/{uid}-{temp_key}"
+            # Capture for later retrieval by the API view
+            self._last_uid = uid
+            self._last_temp_key = temp_key
+            self._last_password_reset_url = url
+            return url
+
+        return {
+            # Supply our custom URL generator to dj-rest-auth form
+            'url_generator': frontend_url_generator,
+            # Extra context shows up in the email templates
+            'extra_email_context': {
+                'frontend_url': settings.FRONTEND_URL,
+            },
+            # Token generator explicit for clarity (same as default)
+            'token_generator': default_token_generator,
+        }
+
+    def save(self):
+        # Call parent save to send emails and trigger our url_generator
+        super().save()
+        # Expose captured values for the view to read
+        return {
+            'uid': getattr(self, '_last_uid', None),
+            'token': getattr(self, '_last_temp_key', None),
+            'password_reset_url': getattr(self, '_last_password_reset_url', None),
+        }
