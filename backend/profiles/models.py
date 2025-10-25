@@ -12,7 +12,6 @@ class Profile(models.Model):
         related_name='profile'
     )
     is_public = models.BooleanField(default=False)
-
     gender = models.CharField(
         max_length=1,
         choices=Gender.choices,
