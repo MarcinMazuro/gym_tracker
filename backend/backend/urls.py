@@ -16,4 +16,8 @@ urlpatterns = [
     # All authentication endpoints will be under /api/v1/auth/
     # Example: http://localhost:8000/api/v1/auth/login/
     path('api/v1/', include('accounts.urls')),
+
+    # Allauth URLs - required for email verification and other account actions
+    # This provides the 'account_confirm_email' URL that was causing the NoReverseMatch error
+    path('accounts/', include('allauth.urls')),
 ]

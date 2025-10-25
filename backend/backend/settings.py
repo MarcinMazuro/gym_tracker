@@ -31,6 +31,8 @@ SECRET_KEY = 'django-insecure-_ue-1y##0dfy(*)7mvyp0j=o8tpdemlaa^n_mup+(j%dv43r+=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True  # Set to True for development to see detailed error pages
 
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
 ALLOWED_HOSTS = ["*"]
 
 
@@ -61,9 +63,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -240,12 +242,15 @@ SIMPLE_JWT = {
 # CORS configuration for allowing frontend to access the API
 # CORS = Cross-Origin Resource Sharing
 # Allows JavaScript from these origins to make requests to our API
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",      # React development server
-    "http://127.0.0.1:3000",      # Alternative localhost
-    "http://localhost:19006",     # React Native Expo
-    "http://localhost:5173"
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",      # React development server
+#     "http://127.0.0.1:3000",      # Alternative localhost
+#     "http://localhost:19006",     # React Native Expo
+#     'http://localhost:5173',
+#     'http://127.0.0.1:5173',
+# ]
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Allow cookies/auth headers in cross-origin requests
 CORS_ALLOW_CREDENTIALS = True
@@ -259,12 +264,18 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
+# Your custom settings
+FRONTEND_URL = 'http://localhost:5173'
+
 # Allauth configuration
 # Email verification - options: 'none', 'optional', 'mandatory'
 # 'optional' - emails are sent but users can login without verification
 # 'mandatory' - users MUST verify email before login (requires proper frontend handling)
 # Emails will be printed to console via EMAIL_BACKEND setting below
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
+
+# This setting is used to build the verification URL
+ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
 
 # Email must be unique - one email per account
 ACCOUNT_UNIQUE_EMAIL = True
@@ -323,5 +334,3 @@ REST_AUTH = {
     # Custom Registration serializer
     'REGISTER_SERIALIZER': 'accounts.serializers.RegisterSerializer',
 }
-
-ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
