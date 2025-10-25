@@ -4,6 +4,9 @@ from dj_rest_auth.registration.serializers import RegisterSerializer as BaseRegi
 from dj_rest_auth.serializers import PasswordResetSerializer
 from allauth.account.forms import ResetPasswordForm
 from django.conf import settings
+from allauth.account.utils import user_pk_to_url_str
+from allauth.account.forms import default_token_generator
+from allauth.account.models import EmailAddress
 
 # Get our CustomUser model
 User = get_user_model()
@@ -79,7 +82,6 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_email_verified(self, obj):
         try:
-            from allauth.account.models import EmailAddress
             return EmailAddress.objects.filter(user=obj, email=obj.email, verified=True).exists()
         except Exception:
             return False
@@ -111,9 +113,6 @@ class CustomPasswordResetSerializer(PasswordResetSerializer):
 
     def get_email_options(self):
         # Build a custom URL that points to the frontend route and includes uid-token
-        from allauth.account.utils import user_pk_to_url_str
-        from allauth.account.forms import default_token_generator
-
         # Initialize holders
         self._last_uid = None
         self._last_temp_key = None

@@ -274,9 +274,6 @@ FRONTEND_URL = 'http://localhost:5173'
 # Emails will be printed to console via EMAIL_BACKEND setting below
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 
-# Users must confirm their email to be considered active
-ACCOUNT_EMAIL_REQUIRED = True
-
 # This setting is used to build the verification URL
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
 
