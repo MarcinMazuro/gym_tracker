@@ -62,12 +62,17 @@ function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-blue-500 hover:underline">
-            Register
+        <div className="mt-4 text-center text-sm flex justify-between">
+          <Link to="/forgot-password" className="text-blue-500 hover:underline">
+            Forgot Password?
           </Link>
-        </p>
+          <span>
+            Don't have an account?{' '}
+            <Link to="/register" className="text-blue-500 hover:underline">
+              Register
+            </Link>
+          </span>
+        </div>
       </div>
     </div>
   );

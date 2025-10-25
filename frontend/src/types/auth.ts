@@ -4,6 +4,7 @@ export interface User {
     email: string;
     first_name: string;
     last_name: string;
+    email_verified?: boolean; // present when authenticated via our API
 }
 
 //Login credentials (POST /auth/login/)

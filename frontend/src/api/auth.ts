@@ -77,6 +77,12 @@ export const authApi = {
         await apiClient.post('/auth/registration/verify-email/', { key });
     },
 
+    //Resend verification email
+    //POST /auth/registration/resend-email/
+    resendVerificationEmail: async (email: string): Promise<void> => {
+        await apiClient.post('/auth/registration/resend-email/', { email });
+    },
+
 
     //Request password reset
     //POST /auth/password/reset/
