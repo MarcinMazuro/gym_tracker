@@ -43,6 +43,7 @@ backend/.env
 *.db
 *.sqlite
 *.sqlite3
+backend/exercises/fixtures/exercises.json
 
 # PyCharm
 .idea/
