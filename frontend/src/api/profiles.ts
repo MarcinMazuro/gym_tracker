@@ -6,12 +6,13 @@ export interface Profile {
     first_name: string;
     last_name: string;
     is_public: boolean;
-    gender: 'M' | 'F' | 'O' | null;
+    gender: 'M' | 'F' | null;
     weight: number | null;
     height: number | null;
     body_fat_percentage: number | null;
     updated_at: string;
     date_joined: string;
+    about_me: string | null;
 }
 
 export interface PublicProfile {
@@ -23,6 +24,7 @@ export interface PublicProfile {
     height: number | null;
     body_fat_percentage: number | null;
     date_joined: string;
+    about_me: string | null;
 }
 
 export const getMyProfile = (): Promise<Profile> => {

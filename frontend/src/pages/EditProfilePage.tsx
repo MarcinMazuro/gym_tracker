@@ -21,7 +21,7 @@ function EditProfilePage() {
             });
     }, []);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target;
         const isCheckbox = type === 'checkbox';
         setProfile(prev => ({
@@ -43,6 +43,7 @@ function EditProfilePage() {
                 weight: profile.weight || null,
                 height: profile.height || null,
                 body_fat_percentage: profile.body_fat_percentage || null,
+                about_me: profile.about_me || null,
             };
             const updatedProfile = await updateMyProfile(payload);
             setProfile(updatedProfile);
@@ -106,6 +107,20 @@ function EditProfilePage() {
                         <input type="number" name="body_fat_percentage" value={profile.body_fat_percentage || ''} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
                     </div>
                 </div>
+
+                <div>
+                    <label htmlFor="about_me" className="block text-gray-700 font-bold mb-2">About Me</label>
+                    <textarea
+                        id="about_me"
+                        name="about_me"
+                        rows={4}
+                        className="w-full px-3 py-2 border rounded-md"
+                        placeholder="Tell us something about yourself..."
+                        value={profile.about_me || ''}
+                        onChange={handleChange}
+                    />
+                </div>
+                
                 <div className="flex items-center pt-2">
                     <input type="checkbox" id="is_public" name="is_public" checked={profile.is_public || false} onChange={handleChange} className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
                     <label htmlFor="is_public" className="ml-2 block text-sm text-gray-900">Make my profile public</label>

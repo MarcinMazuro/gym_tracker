@@ -32,6 +32,13 @@ export function ProfileView({ profile, isOwner }: ProfileViewProps) {
                 )}
             </div>
 
+            {profile.about_me && (
+                <div className="mb-6 border-t pt-4">
+                    <h3 className="font-bold text-gray-700 mb-2">About Me</h3>
+                    <p className="text-gray-600 whitespace-pre-wrap">{profile.about_me}</p>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <div className="border-t pt-4">
                     <h3 className="font-bold text-gray-700">Personal Info</h3>

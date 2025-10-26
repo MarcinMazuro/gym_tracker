@@ -13,7 +13,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = [
             'username', 'first_name', 'last_name', 'gender', 'weight', 
-            'height', 'body_fat_percentage', 'date_joined'
+            'height', 'body_fat_percentage', 'date_joined', 'about_me'
         ]
 
 class ProfileSerializer(serializers.ModelSerializer):
@@ -28,7 +28,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         model = Profile
         fields = [
             'username', 'email', 'first_name', 'last_name', 'is_public', 'gender',
-            'weight', 'height', 'body_fat_percentage', 'updated_at', 'date_joined'
+            'weight', 'height', 'body_fat_percentage', 'updated_at', 'date_joined', 'about_me'
         ]
 
     def update(self, instance, validated_data):
