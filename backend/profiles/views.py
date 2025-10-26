@@ -20,7 +20,7 @@ class PublicProfileListView(generics.ListAPIView):
 class PublicProfileDetailView(generics.RetrieveAPIView):
     """Retrieve a specific public profile by username."""
     queryset = Profile.objects.filter(is_public=True)
-    serializer_cladd = PublicProfileSerializer
+    serializer_class = PublicProfileSerializer
     permission_classes = [AllowAny]
     lookup_field = 'user__username'
     lookup_url_kwarg = 'username'

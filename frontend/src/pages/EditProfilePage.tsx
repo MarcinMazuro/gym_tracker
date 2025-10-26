@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { getMyProfile, updateMyProfile} from '../api/profiles';
 import type { Profile } from '../api/profiles';
+import { Link } from 'react-router-dom';
 
-function ProfilePage() {
+function EditProfilePage() {
     const [profile, setProfile] = useState<Partial<Profile>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -55,6 +56,12 @@ function ProfilePage() {
 
     return (
         <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-lg shadow-md">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Edit Your Profile</h1>
+                <Link to="/dashboard" className="text-blue-500 hover:underline">
+                    &larr; Back to Dashboard
+                </Link>
+            </div>
             <h1 className="text-3xl font-bold mb-2">Your Profile</h1>
             <p className="text-sm text-gray-500 mb-6">
                 Member since: {new Date(profile.date_joined || '').toLocaleDateString()}
@@ -109,6 +116,7 @@ function ProfilePage() {
             </form>
         </div>
     );
+    
 }
 
-export default ProfilePage;
+export default EditProfilePage;
