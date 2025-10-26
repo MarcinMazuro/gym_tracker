@@ -12,6 +12,10 @@ import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import ChangePasswordPage from '@/pages/ChangePasswordPage';
 import ErrorPage from './pages/ErrorPage';
 
+import ProfilePage from './pages/ProfilePage';
+import ProfilesListPage from './pages/ProfilesListPage';
+import PublicProfilePage from './pages/PublicProfilePage';
+
 function App() {
   return (
     <AuthProvider>
@@ -71,6 +75,9 @@ function App() {
             }
           />
 
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/profiles" element={<ProfilesListPage />} />
+          <Route path="/profiles/:username" element={<PublicProfilePage />} />
           {/* 404 - Not found */}
           <Route path="*" element={<ErrorPage />} />
         </Routes>
