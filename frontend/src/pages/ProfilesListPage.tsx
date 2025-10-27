@@ -3,13 +3,24 @@ import { Link } from 'react-router-dom';
 import { getPublicProfiles } from '../api/profiles';
 import type { PublicProfile } from '../api/profiles';
 
+// If your API returns { results: PublicProfile[] }
+type ProfilesApiResponse = PublicProfile[] | { results: PublicProfile[] };
+
 function ProfilesListPage() {
     const [profiles, setProfiles] = useState<PublicProfile[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         getPublicProfiles()
-            .then(setProfiles)
+            .then((data: ProfilesApiResponse) => {
+                if (Array.isArray(data)) {
+                    setProfiles(data);
+                } else if (data && Array.isArray((data as { results: PublicProfile[] }).results)) {
+                    setProfiles((data as { results: PublicProfile[] }).results);
+                } else {
+                    setProfiles([]);
+                }
+            })
             .finally(() => setIsLoading(false));
     }, []);
 

@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import type { AxiosResponse } from 'axios';
 
 // Interface for a single exercise, matching the serializer
 export interface Exercise {
@@ -27,7 +28,9 @@ export interface PaginatedResponse<T> {
  * @param page The page number to fetch.
  */
 export const getExercises = (page: number): Promise<PaginatedResponse<Exercise>> => {
-    return apiClient.get(`/exercises/?page=${page}`);
+    // Określ typ odpowiedzi i wyodrębnij .data
+    return apiClient.get<PaginatedResponse<Exercise>>(`/exercises/?page=${page}`)
+        .then((response: AxiosResponse<PaginatedResponse<Exercise>>) => response.data);
 };
 
 /**
@@ -35,5 +38,7 @@ export const getExercises = (page: number): Promise<PaginatedResponse<Exercise>>
  * @param id The ID of the exercise to fetch.
  */
 export const getExerciseById = (id: string): Promise<Exercise> => {
-    return apiClient.get(`/exercises/${id}/`);
+    // Określ typ odpowiedzi i wyodrębnij .data
+    return apiClient.get<Exercise>(`/exercises/${id}/`)
+        .then((response: AxiosResponse<Exercise>) => response.data);
 };
