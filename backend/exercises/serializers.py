@@ -13,6 +13,14 @@ class EquipmentSerializer(serializers.ModelSerializer):
         model = Equipment
         fields = ['id', 'name']
 
+class CategorySerializer(serializers.Serializer):
+    """Serializer for exercise categories."""
+    category = serializers.CharField()
+
+    def to_representation(self, instance):
+        # Dla queryset zwracającego stringi, zwróć {'category': instance}
+        return {'category': instance}
+
 class ExerciseSerializer(serializers.ModelSerializer):
     """Serializer for the Exercise model"""
     equipment = serializers.StringRelatedField()

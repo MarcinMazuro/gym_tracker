@@ -44,6 +44,7 @@ function ExerciseDetailPage() {
                 <p><span className="font-semibold text-gray-800">Equipment:</span> <span className="capitalize">{exercise.equipment}</span></p>
                 <p><span className="font-semibold text-gray-800">Level:</span> <span className="capitalize">{exercise.level}</span></p>
                 <p><span className="font-semibold text-gray-800">Mechanic:</span> <span className="capitalize">{exercise.mechanic || 'N/A'}</span></p>
+                <p><span className="font-semibold text-gray-800">Force:</span> <span className="capitalize">{exercise.force || 'N/A'}</span></p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mb-6">

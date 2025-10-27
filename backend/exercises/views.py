@@ -1,7 +1,7 @@
 from rest_framework import viewsets, generics
 from rest_framework.permissions import IsAuthenticated
 from .models import Exercise, MuscleGroup, Equipment
-from .serializers import ExerciseSerializer, MuscleGroupSerializer, EquipmentSerializer
+from .serializers import ExerciseSerializer, MuscleGroupSerializer, EquipmentSerializer, CategorySerializer
 from django_filters.rest_framework import DjangoFilterBackend, FilterSet
 import django_filters
 
@@ -46,4 +46,12 @@ class EquipmentListView(generics.ListAPIView):
     """
     queryset = Equipment.objects.all().order_by('name')
     serializer_class = EquipmentSerializer
+    permission_classes = [IsAuthenticated]
+
+class CategoryListView(generics.ListAPIView):
+    """
+    An API view for listing all exercise categories. Useful for frontend filters.
+    """
+    queryset = Exercise.objects.values_list('category', flat=True).distinct().order_by('category')
+    serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
