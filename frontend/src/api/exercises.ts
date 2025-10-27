@@ -24,12 +24,21 @@ export interface PaginatedResponse<T> {
 }
 
 /**
- * Fetches a paginated list of exercises.
+ * Fetches a paginated list of exercises with optional filters.
  * @param page The page number to fetch.
+ * @param filters Optional filters object.
  */
-export const getExercises = (page: number): Promise<PaginatedResponse<Exercise>> => {
-    // Określ typ odpowiedzi i wyodrębnij .data
-    return apiClient.get<PaginatedResponse<Exercise>>(`/exercises/?page=${page}`)
+export const getExercises = (
+    page: number,
+    filters?: { [key: string]: string | undefined }
+): Promise<PaginatedResponse<Exercise>> => {
+    const params = new URLSearchParams({ page: page.toString() });
+    if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value) params.append(key, value);
+        });
+    }
+    return apiClient.get<PaginatedResponse<Exercise>>(`/exercises/?${params.toString()}`)
         .then((response: AxiosResponse<PaginatedResponse<Exercise>>) => response.data);
 };
 
