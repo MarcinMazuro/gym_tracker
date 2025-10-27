@@ -27,6 +27,9 @@ export function MainLayout() {
                         {isAuthenticated ? (
                             // Links for authenticated users
                             <>
+                                <Link to="/exercises" className="text-gray-600 hover:text-indigo-600">
+                                    Exercises
+                                </Link>
                                 <Link to="/dashboard" className="text-gray-600 hover:text-indigo-600">
                                     My Dashboard
                                 </Link>

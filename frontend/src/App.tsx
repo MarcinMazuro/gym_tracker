@@ -15,6 +15,8 @@ import ErrorPage from './pages/ErrorPage';
 import EditProfilePage from './pages/EditProfilePage';
 import ProfilesListPage from './pages/ProfilesListPage';
 import PublicProfilePage from './pages/PublicProfilePage';
+import ExercisesListPage from './pages/ExercisesListPage';
+import ExerciseDetailPage from './pages/ExerciseDetailPage';
 
 function App() {
   return (
@@ -39,6 +41,9 @@ function App() {
             <Route path="dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
             <Route path="change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
+
+            <Route path="exercises" element={<ProtectedRoute><ExercisesListPage /></ProtectedRoute>} />
+            <Route path="exercises/:id" element={<ProtectedRoute><ExerciseDetailPage /></ProtectedRoute>} />
 
             {/* Public profile routes */}
             <Route path="profiles" element={<ProfilesListPage />} />
