@@ -17,6 +17,9 @@ import ProfilesListPage from './pages/ProfilesListPage';
 import PublicProfilePage from './pages/PublicProfilePage';
 import ExercisesListPage from './pages/ExercisesListPage';
 import ExerciseDetailPage from './pages/ExerciseDetailPage';
+import WorkoutHistoryPage from './pages/WorkoutHistoryPage';
+import WorkoutTrackerPage from './pages/WorkoutTrackerPage';
+import SessionDetailPage from './pages/SessionDetailPage';
 
 function App() {
   return (
@@ -44,6 +47,10 @@ function App() {
 
             <Route path="exercises" element={<ProtectedRoute><ExercisesListPage /></ProtectedRoute>} />
             <Route path="exercises/:id" element={<ProtectedRoute><ExerciseDetailPage /></ProtectedRoute>} />
+
+            <Route path="/history" element={<WorkoutHistoryPage />} />
+            <Route path="/history/:sessionId" element={<SessionDetailPage />} />
+            <Route path="/tracker" element={<WorkoutTrackerPage />} />
 
             {/* Public profile routes */}
             <Route path="profiles" element={<ProfilesListPage />} />
