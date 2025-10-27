@@ -54,6 +54,12 @@ export function MainLayout() {
                                 <Link to="/exercises" className="text-gray-600 hover:text-indigo-600">
                                     Exercises
                                 </Link>
+                                <Link to="/workouts" className="text-gray-600 hover:text-indigo-600">
+                                My Plans
+                                </Link>
+                                <Link to="/history" className="text-gray-600 hover:text-indigo-600">
+                                History
+                                </Link>
                                 <Link to="/dashboard" className="text-gray-600 hover:text-indigo-600">
                                     My Dashboard
                                 </Link>
@@ -119,6 +125,12 @@ export function MainLayout() {
                                 <>
                                     <button onClick={() => handleMobileLinkClick('/exercises')} className="text-gray-600 hover:text-indigo-600 text-left py-2">
                                         Exercises
+                                    </button>
+                                    <button onClick={() => handleMobileLinkClick('/workouts')} className="text-gray-600 hover:text-indigo-600 text-left py-2">
+                                        My Plans
+                                    </button>
+                                    <button onClick={() => handleMobileLinkClick('/history')} className="text-gray-600 hover:text-indigo-600 text-left py-2">
+                                        History
                                     </button>
                                     <button onClick={() => handleMobileLinkClick('/dashboard')} className="text-gray-600 hover:text-indigo-600 text-left py-2">
                                         My Dashboard

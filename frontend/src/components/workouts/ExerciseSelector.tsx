@@ -3,13 +3,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { Exercise } from '@/api/exercises';
 import { getExercises } from '@/api/exercises';
-import { Spinner } from '@/components/common/Spinner'; // We will use this now
+import { Spinner } from '@/components/common/Spinner';
 
 interface ExerciseSelectorProps {
     onSelect: (exercise: Exercise) => void;
 }
 
-// Full list of exercises, fetched once
+// Przechowujemy ćwiczenia w zmiennej modułu, aby uniknąć wielokrotnego pobierania
 let allExercises: Exercise[] = [];
 let exercisesFetched = false;
 
@@ -24,8 +24,7 @@ export function ExerciseSelector({ onSelect }: ExerciseSelectorProps) {
             return;
         }
         
-        // --- 1. THE FIX for the type error ---
-        // '1000' is now a string to match the function signature
+        // Pobieramy wszystkie ćwiczenia (limit: '1000' jako string)
         getExercises(1, { limit: '1000' }) 
             .then(data => {
                 allExercises = data.results;
@@ -45,7 +44,6 @@ export function ExerciseSelector({ onSelect }: ExerciseSelectorProps) {
         );
     }, [searchTerm]);
 
-    // --- 2. THE FIX for the spinner ---
     if (isLoading) {
         return (
             <div className="p-4 h-[400px] flex justify-center items-center">
@@ -64,12 +62,12 @@ export function ExerciseSelector({ onSelect }: ExerciseSelectorProps) {
                 type="text"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Search exercises..."
+                placeholder="Szukaj ćwiczenia..."
                 className="p-2 border border-gray-300 rounded-md sticky top-0"
             />
             <ul className="overflow-y-auto mt-2 space-y-1">
                 {filteredExercises.length === 0 && (
-                    <li className="p-2 text-gray-500 text-center">No exercises found.</li>
+                    <li className="p-2 text-gray-500 text-center">Nie znaleziono ćwiczeń.</li>
                 )}
                 {filteredExercises.map(ex => (
                     <li key={ex.id}>

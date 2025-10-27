@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMyWorkoutPlans, deleteWorkoutPlan } from '@/api/workouts';
 import type { WorkoutPlan } from '@/api/workouts';
+import { Spinner } from '@/components/common/Spinner'; // Assuming you have a Spinner component
 
 export default function WorkoutPlansPage() {
     const [plans, setPlans] = useState<WorkoutPlan[]>([]);
@@ -15,8 +16,22 @@ export default function WorkoutPlansPage() {
         setIsLoading(true);
         getMyWorkoutPlans()
             .then(data => {
-                setPlans(data);
-                setError('');
+                // --- FIX IS HERE ---
+                // Check if data is a paginated response and has a 'results' array
+                // We cast to 'any' to safely check for 'results'
+                if (data && Array.isArray((data as any).results)) {
+                    setPlans((data as any).results);
+                }
+                // Check if data is already the array we expected
+                else if (Array.isArray(data)) {
+                    setPlans(data);
+                }
+                // Handle unexpected data structure
+                else {
+                    console.error("Unexpected data structure from getMyWorkoutPlans:", data);
+                    setError('Failed to parse workout plans.');
+                }
+                // --- END OF FIX ---
             })
             .catch(() => {
                 setError('Failed to fetch workout plans.');
@@ -46,14 +61,15 @@ export default function WorkoutPlansPage() {
 
     const renderContent = () => {
         if (isLoading) {
-            return <p className="text-gray-500">Loading plans...</p>;
+            // Using a Spinner here is better practice than just text
+            return <div className="flex justify-center mt-20"><Spinner /></div>;
         }
         if (error) {
-            return <p className="text-red-500">{error}</p>;
+            return <p className="text-red-500 p-4 text-center">{error}</p>;
         }
         if (plans.length === 0) {
             return (
-                <p className="text-gray-500">
+                <p className="text-gray-500 text-center">
                     You haven't created any workout plans yet.
                 </p>
             );

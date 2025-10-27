@@ -20,6 +20,8 @@ import ExerciseDetailPage from './pages/ExerciseDetailPage';
 import WorkoutHistoryPage from './pages/WorkoutHistoryPage';
 import WorkoutTrackerPage from './pages/WorkoutTrackerPage';
 import SessionDetailPage from './pages/SessionDetailPage';
+import WorkoutPlansPage from './pages/WorkoutPlansPage';
+import WorkoutBuilderPage from './pages/WorkoutBuilderPage';
 
 function App() {
   return (
@@ -51,6 +53,9 @@ function App() {
             <Route path="/history" element={<WorkoutHistoryPage />} />
             <Route path="/history/:sessionId" element={<SessionDetailPage />} />
             <Route path="/tracker" element={<WorkoutTrackerPage />} />
+            <Route path="/workouts" element={<WorkoutPlansPage />} />
+            <Route path="/workouts/new" element={<WorkoutBuilderPage />} />
+            <Route path="/workouts/:planId/edit" element={<WorkoutBuilderPage/>} />
 
             {/* Public profile routes */}
             <Route path="profiles" element={<ProfilesListPage />} />

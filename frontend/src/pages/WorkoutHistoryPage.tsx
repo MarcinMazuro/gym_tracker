@@ -15,8 +15,22 @@ export default function WorkoutHistoryPage() {
         setIsLoading(true);
         getMyWorkoutSessions()
             .then(data => {
-                setSessions(data);
-                setError('');
+                // --- FIX IS HERE ---
+                // Check if data is a paginated response and has a 'results' array
+                // We cast to 'any' to safely check for 'results'
+                if (data && Array.isArray((data as any).results)) {
+                    setSessions((data as any).results);
+                } 
+                // Check if data is already the array we expected
+                else if (Array.isArray(data)) {
+                    setSessions(data);
+                } 
+                // Handle unexpected data structure
+                else {
+                    console.error("Unexpected data structure from getMyWorkoutSessions:", data);
+                    setError('Failed to parse workout history.');
+                }
+                // --- END OF FIX ---
             })
             .catch(() => {
                 setError('Failed to fetch workout history.');
