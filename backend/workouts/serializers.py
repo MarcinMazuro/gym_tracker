@@ -1,0 +1,109 @@
+from rest_framework import serializers
+from .models import WorkoutPlan, ExerciseGroup, PlannedSet, WorkoutSession, LoggedSet
+from exercises.serializers import ExerciseSerializer
+
+class PlannedSetSerializer(serializers.ModelSerializer):
+    """
+    Serializer for a single planned set.
+    """
+    # Nest the exercise details here for the frontend
+    # exercise = ExerciseSerializer(read_only=True) 
+    # exercise_id = serializers.PrimaryKeyRelatedField(queryset=Exercise.objects.all(), source='exercise', write_only=True)
+    
+    class Meta:
+        model = PlannedSet
+        # Specify 'exercise' directly. The frontend will send the exercise ID.
+        fields = ['id', 'exercise', 'order', 'target_reps', 'target_weight', 'rest_time_after']
+
+class ExerciseGroupSerializer(serializers.ModelSerializer):
+    """
+    Serializer for an Exercise Group, which nests its sets.
+    """
+    # This nests the 'PlannedSetSerializer' inside the group
+    sets = PlannedSetSerializer(many=True)
+
+    class Meta:
+        model = ExerciseGroup
+        fields = ['id', 'order', 'name', 'sets']
+
+class WorkoutPlanSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the full Workout Plan.
+    It nests groups, which in turn nest sets.
+    """
+    groups = ExerciseGroupSerializer(many=True)
+    owner_username = serializers.ReadOnlyField(source='owner.username')
+
+    class Meta:
+        model = WorkoutPlan
+        fields = ['id', 'owner', 'owner_username', 'name', 'description', 'groups']
+        read_only_fields = ['owner']
+
+    def create(self, validated_data):
+        """
+        Custom create method to handle nested group and set creation.
+        """
+        groups_data = validated_data.pop('groups')
+        # Create the plan instance
+        workout_plan = WorkoutPlan.objects.create(**validated_data)
+        
+        # Loop through each group's data
+        for group_data in groups_data:
+            sets_data = group_data.pop('sets')
+            # Create the group instance, linking it to the plan
+            group = ExerciseGroup.objects.create(workout_plan=workout_plan, **group_data)
+            
+            # Loop through each set's data
+            for set_data in sets_data:
+                # Create the set instance, linking it to the group
+                PlannedSet.objects.create(group=group, **set_data)
+        return workout_plan
+
+    def update(self, instance, validated_data):
+        """
+        Custom update method to handle nested updates.
+        This is the "simple" way: delete all old children and recreate.
+        """
+        groups_data = validated_data.pop('groups')
+
+        # Update the plan's top-level fields
+        instance.name = validated_data.get('name', instance.name)
+        instance.description = validated_data.get('description', instance.description)
+        instance.save()
+
+        # Delete all old groups and their sets
+        instance.groups.all().delete()
+
+        # Re-create the groups and sets from the new data (just like in create)
+        for group_data in groups_data:
+            sets_data = group_data.pop('sets')
+            group = ExerciseGroup.objects.create(workout_plan=instance, **group_data)
+            for set_data in sets_data:
+                PlannedSet.objects.create(group=group, **set_data)
+        
+        return instance
+
+# --- Serializers for Logging ---
+
+class LoggedSetSerializer(serializers.ModelSerializer):
+    """
+    Serializer for logging a single set.
+    """
+    class Meta:
+        model = LoggedSet
+        fields = '__all__'
+        read_only_fields = ['session'] # Session will be set in the View
+
+class WorkoutSessionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the workout session (the history item).
+    """
+    # Make 'logged_sets' read_only because sets will be created
+    # individually, not nested within the session creation.
+    logged_sets = LoggedSetSerializer(many=True, read_only=True)
+    owner_username = serializers.ReadOnlyField(source='owner.username')
+
+    class Meta:
+        model = WorkoutSession
+        fields = ['id', 'owner', 'owner_username', 'plan', 'date_started', 'date_finished', 'notes', 'logged_sets']
+        read_only_fields = ['owner']
