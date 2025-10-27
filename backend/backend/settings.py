@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'accounts',
     'profiles',
     'exercises',
+    'workouts',
     
     # Third party apps
     'rest_framework',
