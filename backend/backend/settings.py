@@ -203,10 +203,10 @@ REST_FRAMEWORK = {
     'rest_framework.throttling.AnonRateThrottle',
     'rest_framework.throttling.UserRateThrottle'
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/day',  # not logged in
-        'user': '1000/day' # logged in
-    },
+    # 'DEFAULT_THROTTLE_RATES': {
+    #     'anon': '100/day',  # not logged in
+    #     'user': '1000/day' # logged in
+    # },
 
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10

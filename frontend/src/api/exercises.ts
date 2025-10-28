@@ -51,3 +51,15 @@ export const getExerciseById = (id: string): Promise<Exercise> => {
     return apiClient.get<Exercise>(`/exercises/${id}/`)
         .then((response: AxiosResponse<Exercise>) => response.data);
 };
+
+/**
+ * Fetches multiple exercises by their IDs.
+ * @param ids Array of exercise IDs to fetch.
+ */
+export const getExercisesByIds = (ids: number[]): Promise<Exercise[]> => {
+    if (ids.length === 0) return Promise.resolve([]);
+
+    const idString = ids.join(',');
+    return apiClient.get<PaginatedResponse<Exercise>>(`/exercises/?id_in=${idString}&page_size=1000`)
+        .then((response: AxiosResponse<PaginatedResponse<Exercise>>) => response.data.results);
+};

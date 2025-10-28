@@ -14,12 +14,20 @@ class ExerciseFilter(django_filters.FilterSet):
     equipment = django_filters.CharFilter(field_name='equipment__name', lookup_expr='iexact')
     primary_muscles = django_filters.CharFilter(field_name='primary_muscles__name', lookup_expr='iexact')
     secondary_muscles = django_filters.CharFilter(field_name='secondary_muscles__name', lookup_expr='iexact')
+    id_in = django_filters.CharFilter(method='filter_id_in')
+
+    def filter_id_in(self, queryset, name, value):
+        """Filter exercises by comma-separated list of IDs"""
+        if value:
+            ids = [int(id.strip()) for id in value.split(',') if id.strip().isdigit()]
+            return queryset.filter(id__in=ids)
+        return queryset
 
     class Meta:
         model = Exercise
         fields = [
             'name', 'force', 'level', 'mechanic', 'category',
-            'equipment', 'primary_muscles', 'secondary_muscles'
+            'equipment', 'primary_muscles', 'secondary_muscles', 'id_in'
         ]
 
 class ExerciseViewSet(viewsets.ReadOnlyModelViewSet):
