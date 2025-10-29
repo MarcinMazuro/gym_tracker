@@ -1,5 +1,3 @@
-// frontend/src/pages/WorkoutHistoryPage.tsx
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getMyWorkoutSessions } from '@/api/workouts';
@@ -15,22 +13,24 @@ export default function WorkoutHistoryPage() {
         setIsLoading(true);
         getMyWorkoutSessions()
             .then(data => {
-                // --- FIX IS HERE ---
-                // Check if data is a paginated response and has a 'results' array
-                // We cast to 'any' to safely check for 'results'
+                let sessionsData: WorkoutSession[] = [];
                 if (data && Array.isArray((data as any).results)) {
-                    setSessions((data as any).results);
+                    sessionsData = (data as any).results;
                 } 
                 // Check if data is already the array we expected
                 else if (Array.isArray(data)) {
-                    setSessions(data);
+                    sessionsData = data;
                 } 
                 // Handle unexpected data structure
                 else {
                     console.error("Unexpected data structure from getMyWorkoutSessions:", data);
                     setError('Failed to parse workout history.');
+                    return;
                 }
-                // --- END OF FIX ---
+                
+                // Sort sessions by date_started in descending order (most recent first)
+                sessionsData.sort((a, b) => new Date(b.date_started).getTime() - new Date(a.date_started).getTime());
+                setSessions(sessionsData);
             })
             .catch(() => {
                 setError('Failed to fetch workout history.');
@@ -61,11 +61,8 @@ export default function WorkoutHistoryPage() {
                     <li key={session.id} className="p-4 bg-white shadow-md rounded-lg">
                         <Link to={`/history/${session.id}`} className="block hover:bg-gray-50 p-2">
                             <h2 className="text-xl font-bold text-indigo-600">
-                                Workout on {new Date(session.date_started).toLocaleDateString()}
+                                {session?.plan_name} Workout on {new Date(session.date_started).toLocaleDateString()}
                             </h2>
-                            <p className="text-gray-600 mt-1">
-                                {session.logged_sets.length} sets logged
-                            </p>
                         </Link>
                     </li>
                 ))}

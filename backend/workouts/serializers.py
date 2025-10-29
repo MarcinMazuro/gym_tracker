@@ -119,6 +119,7 @@ class WorkoutSessionListSerializer(serializers.ModelSerializer):
     """
     owner_username = serializers.ReadOnlyField(source='owner.username')
     set_count = serializers.SerializerMethodField()
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
 
     def get_set_count(self, obj):
         return obj.logged_sets.count()
@@ -126,7 +127,7 @@ class WorkoutSessionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutSession
         fields = [
-            'id', 'owner_username', 'plan', 'status',
+            'id', 'owner_username', 'plan', 'status', 'plan_name',
             'date_started', 'date_finished', 'set_count'
         ]
         

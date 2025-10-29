@@ -307,9 +307,13 @@ export default function WorkoutTrackerPage() {
         
         try {
             await cancelWorkoutSession(session.id);
-            navigate('/history');
+            // Dispatch event to notify MainLayout to update activeSession
+            window.dispatchEvent(new Event('workoutCanceled'));
+            window.location.href = '/history';
         } catch (err) {
             console.error('Failed to cancel workout:', err);
+            // Dispatch event even on error to ensure UI updates
+            window.dispatchEvent(new Event('workoutCanceled'));
             navigate('/history'); // Navigate anyway
         }
     };
@@ -402,7 +406,7 @@ export default function WorkoutTrackerPage() {
                         </h2>
                     </div>
                     <div className="text-right text-sm text-gray-500">
-                        <p>{session.logged_sets.length} sets logged</p>
+                        <p>{session.logged_sets?.length || 0} sets logged</p>
                     </div>
                 </div>
 

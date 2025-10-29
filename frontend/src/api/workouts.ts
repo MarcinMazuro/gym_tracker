@@ -56,6 +56,7 @@ export interface WorkoutSession {
     id: number;
     owner_username: string;
     plan?: number | null;
+    plan_name?: string | null;
     plan_details?: WorkoutPlan;
     status: 'in_progress' | 'completed' | 'cancelled';
     current_group_index: number;
