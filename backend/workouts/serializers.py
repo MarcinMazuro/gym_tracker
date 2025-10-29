@@ -6,14 +6,12 @@ class PlannedSetSerializer(serializers.ModelSerializer):
     """
     Serializer for a single planned set.
     """
-    # Nest the exercise details here for the frontend
-    # exercise = ExerciseSerializer(read_only=True) 
-    # exercise_id = serializers.PrimaryKeyRelatedField(queryset=Exercise.objects.all(), source='exercise', write_only=True)
-    
+   
     class Meta:
         model = PlannedSet
         # Specify 'exercise' directly. The frontend will send the exercise ID.
         fields = ['id', 'exercise', 'order', 'target_reps', 'target_weight', 'rest_time_after']
+
 
 class ExerciseGroupSerializer(serializers.ModelSerializer):
     """
@@ -25,6 +23,7 @@ class ExerciseGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExerciseGroup
         fields = ['id', 'order', 'name', 'sets']
+
 
 class WorkoutPlanSerializer(serializers.ModelSerializer):
     """
@@ -83,7 +82,6 @@ class WorkoutPlanSerializer(serializers.ModelSerializer):
         
         return instance
 
-# --- Serializers for Logging ---
 
 class LoggedSetSerializer(serializers.ModelSerializer):
     """
@@ -93,6 +91,7 @@ class LoggedSetSerializer(serializers.ModelSerializer):
         model = LoggedSet
         fields = '__all__'
         read_only_fields = ['session'] # Session will be set in the View
+
 
 class WorkoutSessionSerializer(serializers.ModelSerializer):
     """
@@ -105,5 +104,28 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = WorkoutSession
-        fields = ['id', 'owner', 'owner_username', 'plan', 'date_started', 'date_finished', 'notes', 'logged_sets']
-        read_only_fields = ['owner']
+        fields = [
+            'id', 'owner', 'owner_username', 'plan', 'plan_details',
+            'status', 'current_group_index', 'current_set_index',
+            'date_started', 'date_finished', 'notes', 'logged_sets'
+        ]
+        read_only_fields = ['owner', 'date_started']
+
+
+class WorkoutSessionListSerializer(serializers.ModelSerializer):
+    """
+    Lighter serializer for listing sessions (without full plan details).
+    """
+    owner_username = serializers.ReadOnlyField(source='owner.username')
+    set_count = serializers.SerializerMethodField()
+
+    def get_set_count(self, obj):
+        return obj.logged_sets.count()
+
+    class Meta:
+        model = WorkoutSession
+        fields = [
+            'id', 'owner_username', 'plan', 'status',
+            'date_started', 'date_finished', 'set_count'
+        ]
+        

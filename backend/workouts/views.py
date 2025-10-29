@@ -6,7 +6,8 @@ from rest_framework.decorators import action
 from .models import WorkoutPlan, ExerciseGroup, PlannedSet, WorkoutSession, LoggedSet
 from .serializers import (
     WorkoutPlanSerializer, 
-    WorkoutSessionSerializer, 
+    WorkoutSessionSerializer,
+    WorkoutSessionListSerializer,
     LoggedSetSerializer
 )
 
@@ -56,64 +57,172 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
 # Workout Session ViewSet
 class WorkoutSessionViewSet(viewsets.ModelViewSet):
     """
-    API endpoint for starting, viewing, and managing workout sessions (history).
+    API endpoint for workout sessions with active session support.
     """
-    serializer_class = WorkoutSessionSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwner]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return WorkoutSessionListSerializer
+        return WorkoutSessionSerializer
+
+    def get_queryset(self):
+        return WorkoutSession.objects.filter(owner=self.request.user).prefetch_related(
+            'logged_sets__exercise',
+            'plan__groups__sets__exercise'
+        ).order_by('-date_started')
+
+    def perform_create(self, serializer):
+        # Check if user already has an active session
+        active_session = WorkoutSession.objects.filter(
+            owner=self.request.user,
+            status='in_progress'
+        ).first()
+        
+        if active_session:
+            return Response(
+                {
+                    'error': 'You already have an active workout session.',
+                    'active_session': WorkoutSessionSerializer(active_session).data
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer.save(owner=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        """
+        Get the current active (in_progress) session for the user.
+        Returns 404 if no active session exists.
+        """
+        active_session = WorkoutSession.objects.filter(
+            owner=request.user,
+            status='in_progress'
+        ).prefetch_related(
+            'logged_sets__exercise',
+            'plan__groups__sets__exercise'
+        ).first()
+        
+        if not active_session:
+            return Response(
+                {'detail': 'No active workout session found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = self.get_serializer(active_session)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['patch'])
+    def update_progress(self, request, pk=None):
+        """
+        Update the current position in the workout.
+        Expects: { current_group_index, current_set_index }
+        """
+        session = self.get_object()
+        
+        if session.status != 'in_progress':
+            return Response(
+                {'error': 'Cannot update progress of a finished session.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        current_group_index = request.data.get('current_group_index')
+        current_set_index = request.data.get('current_set_index')
+        
+        if current_group_index is not None:
+            session.current_group_index = current_group_index
+        if current_set_index is not None:
+            session.current_set_index = current_set_index
+        
+        session.save()
+        serializer = self.get_serializer(session)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def finish(self, request, pk=None):
+        """
+        Mark the session as completed.
+        """
+        session = self.get_object()
+        
+        if session.status != 'in_progress':
+            return Response(
+                {'error': 'Session is already finished.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        session.status = 'completed'
+        session.date_finished = timezone.now()
+        session.save()
+        
+        serializer = self.get_serializer(session)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """
+        Mark the session as cancelled.
+        """
+        session = self.get_object()
+        
+        if session.status != 'in_progress':
+            return Response(
+                {'error': 'Session is already finished.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        session.status = 'cancelled'
+        session.date_finished = timezone.now()
+        session.save()
+        
+        serializer = self.get_serializer(session)
+        return Response(serializer.data)
+
+
+class LoggedSetViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for logging individual sets.
+    """
+    serializer_class = LoggedSetSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
 
     def get_queryset(self):
-        """
-        Only return sessions owned by the current user.
-        We prefetch 'logged_sets' for performance.
-        """
-        return WorkoutSession.objects.filter(owner=self.request.user).prefetch_related(
-            'logged_sets__exercise'
-        ).order_by('-date_started') # Show most recent first
-
-    def perform_create(self, serializer):
-        """
-        Automatically assign the current user as the owner.
-        The frontend will send the 'plan' ID (if any) and 'date_started'.
-        """
-        serializer.save(owner=self.request.user)
-
-# Logged Set ViewSet
-class LoggedSetViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for logging individual sets *during* a workout.
-    The frontend will POST to this endpoint for every set completed.
-    """
-    serializer_class = LoggedSetSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwner] # IsOwner checks session owner
-
-    def get_queryset(self):
-        """
-        Only return sets that are part of sessions owned by the current user.
-        """
         return LoggedSet.objects.filter(session__owner=self.request.user)
 
     def create(self, request, *args, **kwargs):
         """
-        Custom create method to link the set to the correct session.
-        We expect the frontend to send `session_id` in the request body.
+        Log a set and automatically update session progress.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # Find the session the user wants to add this set to
+        # Find the session
+        session_id = request.data.get('session_id')
         try:
             session = WorkoutSession.objects.get(
-                id=request.data.get('session_id'), 
-                owner=request.user
+                id=session_id,
+                owner=request.user,
+                status='in_progress'
             )
         except WorkoutSession.DoesNotExist:
             return Response(
-                {"error": "Invalid session ID or you are not the owner."}, 
+                {"error": "Invalid or finished session."},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Save the set, manually linking it to the user's session
-        serializer.save(session=session)
+        # Save the logged set
+        logged_set = serializer.save(session=session)
+        
+        # Auto-update progress if provided
+        current_group_index = request.data.get('current_group_index')
+        current_set_index = request.data.get('current_set_index')
+        
+        if current_group_index is not None:
+            session.current_group_index = current_group_index
+        if current_set_index is not None:
+            session.current_set_index = current_set_index
+        session.save()
+        
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
