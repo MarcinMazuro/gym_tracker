@@ -38,7 +38,7 @@ class ExerciseGroup(models.Model):
 class PlannedSet(models.Model):
     """
     A single planned set within an ExerciseGroup.
-    This is the core of your flexible logic.
+    This is the core of flexible logic.
     """
     group = models.ForeignKey(ExerciseGroup, on_delete=models.CASCADE, related_name='sets')
     # The exercise for this *specific* set
@@ -51,10 +51,11 @@ class PlannedSet(models.Model):
     target_reps = models.CharField(max_length=20, blank=True, null=True, help_text="e.g., '8' or '8-12'")
     target_weight = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     
-    # Custom Rest Time (Insanely Important Feature)
+    # Custom Rest Time
     # The rest time *after* this set is completed
     # Stored in seconds
     rest_time_after = models.PositiveIntegerField(null=True, blank=True, help_text="Rest in seconds AFTER this set")
+    notes = models.TextField(blank=True, null=True)
 
     class Meta:
         ordering = ['order']
@@ -66,14 +67,29 @@ class WorkoutSession(models.Model):
     """
     A single, logged workout instance. This is the "History" item.
     """
+    STATUS_CHOICES = [
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
     # Link to the plan this session was based on (optional)
     # SET_NULL: If a plan is deleted, the history remains.
     plan = models.ForeignKey(WorkoutPlan, on_delete=models.SET_NULL, null=True, blank=True)
     
+    # Status tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='in_progress')
+
+    current_group_index = models.PositiveIntegerField(default=0, help_text="Index of the current exercise group")
+    current_set_index = models.PositiveIntegerField(default=0, help_text="Index of the current set within the group")
+
     date_started = models.DateTimeField(auto_now_add=True)
     date_finished = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-date_started']
 
     def __str__(self):
         return f"Session for {self.owner.username} on {self.date_started.strftime('%Y-%m-%d')}"
