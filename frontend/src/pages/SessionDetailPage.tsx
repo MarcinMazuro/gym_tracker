@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getWorkoutSessionDetails } from '@/api/workouts';
-import { getExercises } from '@/api/exercises';
+import { getExercisesByIds } from '@/api/exercises';
 import type { WorkoutSession, LoggedSet } from '@/api/workouts';
 import type { Exercise } from '@/api/exercises';
 import { Spinner } from '@/components/common/Spinner';
@@ -26,14 +26,15 @@ export default function SessionDetailPage() {
             }
 
             try {
-                // Fetch exercises if we haven't already
-                if (allExercises.length === 0) {
-                    const exerciseData = await getExercises(1, { limit: '1000' });
-                    allExercises = exerciseData.results;
-                }
-
                 const sessionData = await getWorkoutSessionDetails(Number(sessionId));
                 setSession(sessionData);
+
+                // Fetch only the exercises used in this session
+                const exerciseIds = new Set(sessionData.logged_sets.map(s => s.exercise));
+                if (exerciseIds.size > 0) {
+                    const fetchedExercises = await getExercisesByIds(Array.from(exerciseIds));
+                    allExercises = fetchedExercises;
+                }
 
             } catch (err) {
                 setError('Failed to load workout session.');

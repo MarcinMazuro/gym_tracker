@@ -22,11 +22,11 @@ export function MainLayout() {
     }, [isAuthenticated]);
 
     useEffect(() => {
-        const handleWorkoutCanceled = () => {
+        const handleWorkoutFinished = () => {
             setActiveSession(null);
         };
-        window.addEventListener('workoutCanceled', handleWorkoutCanceled);
-        return () => window.removeEventListener('workoutCanceled', handleWorkoutCanceled);
+        window.addEventListener('workoutFinished', handleWorkoutFinished);
+        return () => window.removeEventListener('workoutFinished', handleWorkoutFinished);
     }, []);
 
     const handleLogout = async () => {

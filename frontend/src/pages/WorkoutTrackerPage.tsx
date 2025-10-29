@@ -5,7 +5,6 @@ import {
     startWorkoutSession,
     logSet,
     finishWorkoutSession,
-    cancelWorkoutSession,
     updateSessionProgress
 } from '@/api/workouts';
 import type {
@@ -289,6 +288,18 @@ export default function WorkoutTrackerPage() {
         
         try {
             await finishWorkoutSession(session.id);
+            // Ensure current workout is cleared
+            setSession(null);
+            setPlan(null);
+            setExercises([]);
+            setCurrentGroupIndex(0);
+            setCurrentSetIndex(0);
+            setReps('');
+            setWeight('');
+            setIsResting(false);
+            setRestTimer(0);
+            // Dispatch event to notify MainLayout
+            window.dispatchEvent(new Event('workoutFinished'));
             navigate('/history');
         } catch (err) {
             console.error('Failed to finish workout:', err);
@@ -299,23 +310,6 @@ export default function WorkoutTrackerPage() {
     const handleSkipRest = () => {
         setRestTimer(0);
         setIsResting(false);
-    };
-
-    const handleCancelWorkout = async () => {
-        if (!session) return;
-        if (!window.confirm('Are you sure you want to cancel this workout? Your progress will be saved.')) return;
-        
-        try {
-            await cancelWorkoutSession(session.id);
-            // Dispatch event to notify MainLayout to update activeSession
-            window.dispatchEvent(new Event('workoutCanceled'));
-            window.location.href = '/history';
-        } catch (err) {
-            console.error('Failed to cancel workout:', err);
-            // Dispatch event even on error to ensure UI updates
-            window.dispatchEvent(new Event('workoutCanceled'));
-            navigate('/history'); // Navigate anyway
-        }
     };
 
     // --- Render Logic ---
@@ -497,7 +491,7 @@ export default function WorkoutTrackerPage() {
 
             {/* Cancel Button */}
             <button
-                onClick={handleCancelWorkout}
+                onClick={handleFinishWorkout}
                 className="w-full p-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
             >
                 Cancel Workout
