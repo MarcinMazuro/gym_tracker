@@ -101,6 +101,7 @@ class WorkoutSessionSerializer(serializers.ModelSerializer):
     # individually, not nested within the session creation.
     logged_sets = LoggedSetSerializer(many=True, read_only=True)
     owner_username = serializers.ReadOnlyField(source='owner.username')
+    plan_details = WorkoutPlanSerializer(source='plan', read_only=True)
 
     class Meta:
         model = WorkoutSession

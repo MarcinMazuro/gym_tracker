@@ -1,11 +1,12 @@
-// frontend/src/pages/WorkoutTrackerPage.tsx
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+    getActiveWorkoutSession,
     startWorkoutSession,
     logSet,
-    finishWorkoutSession
+    finishWorkoutSession,
+    cancelWorkoutSession,
+    updateSessionProgress
 } from '@/api/workouts';
 import type {
     WorkoutPlan,
@@ -17,14 +18,12 @@ import { getExercisesByIds } from '@/api/exercises';
 import type { Exercise } from '@/api/exercises';
 import { Spinner } from '@/components/common/Spinner';
 
-// Helper to convert seconds to MM:SS format
 const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-// Cache exercises
 let cachedExercises: Exercise[] | null = null;
 
 export default function WorkoutTrackerPage() {
@@ -50,71 +49,117 @@ export default function WorkoutTrackerPage() {
     const [isResting, setIsResting] = useState(false);
     const [restTimer, setRestTimer] = useState(0);
 
-    // --- Initialization Effect (on mount) ---
+    // --- Initialization: Check for active session or start new one ---
     useEffect(() => {
         const initializeWorkout = async () => {
             try {
-                // 1. Check if a plan was passed from the previous page
+                // 1. First, check if there's an active session
+                let activeSession: WorkoutSession | null = null;
+                try {
+                    activeSession = await getActiveWorkoutSession();
+                    console.log('Found active session:', activeSession);
+                } catch (err: any) {
+                    // 404 means no active session - this is fine
+                    if (err.response?.status !== 404) {
+                        throw err;
+                    }
+                }
+
+                // 2. If we have an active session, resume it
+                if (activeSession) {
+                    if (!activeSession.plan_details) {
+                        setError('Active session has no plan details.');
+                        setIsLoading(false);
+                        return;
+                    }
+
+                    setPlan(activeSession.plan_details);
+                    setSession(activeSession);
+                    
+                    // Restore position
+                    setCurrentGroupIndex(activeSession.current_group_index);
+                    setCurrentSetIndex(activeSession.current_set_index);
+
+                    // Fetch exercises for this plan
+                    const exerciseIds = new Set<number>();
+                    activeSession.plan_details.groups.forEach(group => {
+                        group.sets.forEach(set => exerciseIds.add(set.exercise));
+                    });
+
+                    if (!cachedExercises) {
+                        cachedExercises = await getExercisesByIds(Array.from(exerciseIds));
+                    }
+                    setExercises(cachedExercises);
+
+                    // Pre-fill current set
+                    const currentGroup = activeSession.plan_details.groups[activeSession.current_group_index];
+                    const currentSet = currentGroup?.sets[activeSession.current_set_index];
+                    if (currentSet) {
+                        setReps(currentSet.target_reps || '');
+                        setWeight(currentSet.target_weight || '');
+                    }
+
+                    setIsLoading(false);
+                    return;
+                }
+
+                // 3. No active session - check if a plan was passed to start a new one
                 const planFromState: WorkoutPlan | undefined = location.state?.plan;
                 if (!planFromState) {
-                    setError("No workout plan was selected.");
+                    setError('No workout plan was selected and no active session found.');
                     setIsLoading(false);
                     return;
                 }
                 
-                // Validate plan has groups and sets
                 if (!planFromState.groups || planFromState.groups.length === 0) {
-                    setError("This workout plan has no exercise groups.");
+                    setError('This workout plan has no exercise groups.');
                     setIsLoading(false);
                     return;
                 }
 
                 setPlan(planFromState);
 
-                // 2. Fetch only the exercises used in this workout plan
-                if (!cachedExercises) {
-                    // Extract unique exercise IDs from the workout plan
-                    const exerciseIds = new Set<number>();
-                    planFromState.groups.forEach(group => {
-                        group.sets.forEach(set => exerciseIds.add(set.exercise));
-                    });
+                // Fetch exercises
+                const exerciseIds = new Set<number>();
+                planFromState.groups.forEach(group => {
+                    group.sets.forEach(set => exerciseIds.add(set.exercise));
+                });
 
-                    // Fetch only the exercises needed for this workout
+                if (!cachedExercises) {
                     cachedExercises = await getExercisesByIds(Array.from(exerciseIds));
                 }
                 setExercises(cachedExercises);
                 
-                // 3. Create the session in the backend
+                // Create new session
                 const newSession = await startWorkoutSession({
                     plan: planFromState.id,
                     date_started: new Date().toISOString(),
                 });
                 setSession(newSession);
 
-                // 4. Pre-fill first set
+                // Pre-fill first set
                 const firstSet = planFromState.groups[0]?.sets[0];
                 if (firstSet) {
                     setReps(firstSet.target_reps || '');
                     setWeight(firstSet.target_weight || '');
                 }
 
-            } catch (err) {
+            } catch (err: any) {
                 console.error('Failed to initialize workout:', err);
-                setError('Failed to start workout session.');
+                setError(err.response?.data?.error || 'Failed to initialize workout session.');
             } finally {
                 setIsLoading(false);
             }
         };
 
         initializeWorkout();
-    }, [location.state, navigate]);
+    }, []); // Only run once on mount
 
-    // --- Rest Timer Countdown Effect ---
+    // --- Rest Timer Countdown ---
     useEffect(() => {
         if (!isResting || restTimer <= 0) {
             if (isResting && restTimer <= 0) {
                 setIsResting(false);
-                // You could play a sound here
             }
             return;
         }
@@ -172,23 +217,27 @@ export default function WorkoutTrackerPage() {
             order: (session.logged_sets?.length || 0) + 1,
             actual_reps: parseInt(reps) || 0,
             actual_weight: weight || '0',
+            // Update progress when logging set
+            current_group_index: currentGroupIndex,
+            current_set_index: isLastSetInGroup ? currentSetIndex : currentSetIndex + 1,
         };
 
         try {
             const loggedSet = await logSet(setData);
             
-            // Add new set to local session state
+            // Update local session state
             setSession(prev => {
                 if (!prev) return null;
                 return { 
                     ...prev, 
-                    logged_sets: [...prev.logged_sets, loggedSet] 
+                    logged_sets: [...prev.logged_sets, loggedSet],
+                    current_group_index: currentGroupIndex,
+                    current_set_index: isLastSetInGroup ? currentSetIndex : currentSetIndex + 1,
                 };
             });
 
             // --- Flow logic ---
             if (isLastSetInGroup) {
-                // Don't advance automatically - wait for user to click "Next Group"
                 setReps('');
                 setWeight('');
             } else {
@@ -207,24 +256,39 @@ export default function WorkoutTrackerPage() {
         }
     };
     
-    const handleNextGroup = () => {
+    const handleNextGroup = async () => {
+        if (!session) return;
+
         if (isLastGroup) {
             handleFinishWorkout();
         } else {
-            // Advance to the next group and reset set index
-            setCurrentGroupIndex(prev => prev + 1);
-            setCurrentSetIndex(0);
-            setIsResting(false);
-            setRestTimer(0);
+            const newGroupIndex = currentGroupIndex + 1;
+            
+            try {
+                // Update progress on backend
+                await updateSessionProgress(session.id, {
+                    current_group_index: newGroupIndex,
+                    current_set_index: 0
+                });
+
+                // Update local state
+                setCurrentGroupIndex(newGroupIndex);
+                setCurrentSetIndex(0);
+                setIsResting(false);
+                setRestTimer(0);
+            } catch (err) {
+                console.error('Failed to update progress:', err);
+                setError('Failed to save progress.');
+            }
         }
     };
 
     const handleFinishWorkout = async () => {
         if (!session) return;
-        if (!window.confirm("Are you sure you want to finish this workout?")) return;
+        if (!window.confirm('Are you sure you want to finish this workout?')) return;
         
         try {
-            await finishWorkoutSession(session.id, new Date().toISOString());
+            await finishWorkoutSession(session.id);
             navigate('/history');
         } catch (err) {
             console.error('Failed to finish workout:', err);
@@ -237,9 +301,17 @@ export default function WorkoutTrackerPage() {
         setIsResting(false);
     };
 
-    const handleCancelWorkout = () => {
-        if (!window.confirm("Are you sure you want to cancel this workout? Your progress will be saved.")) return;
-        navigate('/history');
+    const handleCancelWorkout = async () => {
+        if (!session) return;
+        if (!window.confirm('Are you sure you want to cancel this workout? Your progress will be saved.')) return;
+        
+        try {
+            await cancelWorkoutSession(session.id);
+            navigate('/history');
+        } catch (err) {
+            console.error('Failed to cancel workout:', err);
+            navigate('/history'); // Navigate anyway
+        }
     };
 
     // --- Render Logic ---
@@ -312,6 +384,9 @@ export default function WorkoutTrackerPage() {
                 <p className="text-base sm:text-lg text-gray-600">
                     Group {currentGroupIndex + 1} of {plan.groups.length}
                     {currentGroup.name && `: ${currentGroup.name}`}
+                </p>
+                <p className="text-sm text-gray-500">
+                    Session will auto-save your progress ✓
                 </p>
             </div>
 
