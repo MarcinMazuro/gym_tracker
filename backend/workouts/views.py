@@ -34,24 +34,14 @@ class WorkoutPlanViewSet(viewsets.ModelViewSet):
     their personal workout plans.
     """
     serializer_class = WorkoutPlanSerializer
-    # User must be authenticated AND be the owner to interact
     permission_classes = [permissions.IsAuthenticated, IsOwner]
 
     def get_queryset(self):
-        """
-        This view should only return plans owned by the currently
-        authenticated user.
-        """
-        # We prefetch 'groups' and 'sets' to optimize database queries
         return WorkoutPlan.objects.filter(owner=self.request.user).prefetch_related(
             'groups__sets'
         )
 
     def perform_create(self, serializer):
-        """
-        Automatically assign the current user as the owner when
-        a new workout plan is created.
-        """
         serializer.save(owner=self.request.user)
 
 # Workout Session ViewSet
@@ -143,6 +133,7 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
     def finish(self, request, pk=None):
         """
         Mark the session as completed.
+        Works for both finishing and "cancelling" - both just mark as completed.
         """
         session = self.get_object()
         
@@ -159,25 +150,34 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(session)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['post'])
-    def cancel(self, request, pk=None):
+    def update(self, request, *args, **kwargs):
         """
-        Mark the session as cancelled.
+        Allow updating session notes.
         """
         session = self.get_object()
         
-        if session.status != 'in_progress':
-            return Response(
-                {'error': 'Session is already finished.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        session.status = 'cancelled'
-        session.date_finished = timezone.now()
-        session.save()
+        if 'notes' in request.data:
+            session.notes = request.data['notes']
+            session.save()
         
         serializer = self.get_serializer(session)
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Allow deleting workout sessions.
+        """
+        session = self.get_object()
+        
+        # Prevent deleting active sessions
+        if session.status == 'in_progress':
+            return Response(
+                {'error': 'Cannot delete an active workout session. Please finish it first.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        session.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LoggedSetViewSet(viewsets.ModelViewSet):
@@ -226,3 +226,34 @@ class LoggedSetViewSet(viewsets.ModelViewSet):
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Allow updating logged sets (reps, weight).
+        """
+        logged_set = self.get_object()
+        
+        # Only allow updating if session is completed
+        if logged_set.session.status not in ['in_progress', 'completed']:
+            return Response(
+                {'error': 'Cannot modify sets from this session.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Allow deleting logged sets.
+        """
+        logged_set = self.get_object()
+        
+        # Only allow deleting if session is completed
+        if logged_set.session.status not in ['in_progress', 'completed']:
+            return Response(
+                {'error': 'Cannot delete sets from this session.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return super().destroy(request, *args, **kwargs)
+    

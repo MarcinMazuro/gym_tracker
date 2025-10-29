@@ -1,33 +1,59 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState, useEffect } from 'react'; // Added useEffect
-import { getActiveWorkoutSession } from '@/api/workouts'; // Import the API function
-import type { WorkoutSession } from '@/api/workouts'; // Import the type
+import { useState, useEffect } from 'react';
+import { getActiveWorkoutSession } from '@/api/workouts';
+import type { WorkoutSession } from '@/api/workouts';
 
 export function MainLayout() {
     const { isAuthenticated, logout } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null); // New state for active session
+    const [activeSession, setActiveSession] = useState<WorkoutSession | null>(null);
+    const [showBanner, setShowBanner] = useState(false);
 
-    // New effect to fetch active session when authenticated
+    // Check for active session on mount and auth change
     useEffect(() => {
         if (isAuthenticated) {
-            getActiveWorkoutSession()
-                .then(setActiveSession)
-                .catch(() => setActiveSession(null)); // Ignore errors, just set to null
+            checkActiveSession();
         } else {
             setActiveSession(null);
+            setShowBanner(false);
         }
     }, [isAuthenticated]);
 
+    // Listen for workout finished event
     useEffect(() => {
         const handleWorkoutFinished = () => {
             setActiveSession(null);
+            setShowBanner(false);
         };
         window.addEventListener('workoutFinished', handleWorkoutFinished);
         return () => window.removeEventListener('workoutFinished', handleWorkoutFinished);
     }, []);
+
+    // Hide banner when on tracker page
+    useEffect(() => {
+        if (location.pathname === '/tracker') {
+            setShowBanner(false);
+        } else if (activeSession) {
+            setShowBanner(true);
+        }
+    }, [location.pathname, activeSession]);
+
+    const checkActiveSession = async () => {
+        try {
+            const session = await getActiveWorkoutSession();
+            setActiveSession(session);
+            // Only show banner if not on tracker page
+            if (location.pathname !== '/tracker') {
+                setShowBanner(true);
+            }
+        } catch (err) {
+            setActiveSession(null);
+            setShowBanner(false);
+        }
+    };
 
     const handleLogout = async () => {
         await logout();
@@ -43,6 +69,15 @@ export function MainLayout() {
         setIsMenuOpen(false);
         await logout();
         navigate('/login');
+    };
+
+    const handleDismissBanner = () => {
+        setShowBanner(false);
+    };
+
+    const handleResumeWorkout = () => {
+        setShowBanner(false);
+        navigate('/tracker');
     };
 
     return (
@@ -75,15 +110,6 @@ export function MainLayout() {
                                 <Link to="/dashboard" className="text-gray-600 hover:text-indigo-600">
                                     My Dashboard
                                 </Link>
-                                {/* New: Resume Workout button, only if active session exists */}
-                                {activeSession && (
-                                    <Link
-                                        to="/tracker"
-                                        className="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700"
-                                    >
-                                        Resume Workout
-                                    </Link>
-                                )}
                                 <button
                                     onClick={handleLogout}
                                     className="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600"
@@ -113,11 +139,11 @@ export function MainLayout() {
                             aria-label="Toggle menu"
                         >
                             {isMenuOpen ? (
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
                                 </svg>
                             ) : (
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7"></path>
                                 </svg>
                             )}
@@ -145,15 +171,6 @@ export function MainLayout() {
                                     <button onClick={() => handleMobileLinkClick('/dashboard')} className="text-gray-600 hover:text-indigo-600 text-left py-2">
                                         My Dashboard
                                     </button>
-                                    {/* New: Resume Workout button in mobile menu, only if active session exists */}
-                                    {activeSession && (
-                                        <button
-                                            onClick={() => handleMobileLinkClick('/tracker')}
-                                            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700 text-left"
-                                        >
-                                            Resume Workout
-                                        </button>
-                                    )}
                                     <button
                                         onClick={handleMobileLogout}
                                         className="bg-red-500 text-white px-4 py-2 rounded-md text-sm hover:bg-red-600 text-left"
@@ -178,6 +195,38 @@ export function MainLayout() {
                     </div>
                 )}
             </nav>
+
+            {/* Active Workout Banner */}
+            {showBanner && activeSession && (
+                <div className="bg-green-600 text-white">
+                    <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-2xl">💪</span>
+                            <div>
+                                <p className="font-semibold">Workout in Progress</p>
+                                <p className="text-sm text-green-100">
+                                    {activeSession.plan_details?.name || 'Active Workout'} • {activeSession.logged_sets?.length || 0} sets logged
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={handleResumeWorkout}
+                                className="flex-1 sm:flex-none bg-white text-green-600 px-4 py-2 rounded-md font-medium hover:bg-green-50 transition-colors"
+                            >
+                                Continue Workout
+                            </button>
+                            <button
+                                onClick={handleDismissBanner}
+                                className="sm:hidden bg-green-700 text-white px-3 py-2 rounded-md hover:bg-green-800"
+                                aria-label="Dismiss"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <main className="container mx-auto p-4 md:p-8">
                 <Outlet />

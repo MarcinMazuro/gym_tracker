@@ -70,7 +70,6 @@ class WorkoutSession(models.Model):
     STATUS_CHOICES = [
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
-        ('cancelled', 'Cancelled'),
     ]
 
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')

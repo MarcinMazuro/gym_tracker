@@ -105,8 +105,8 @@ export const deleteWorkoutPlan = (planId: number): Promise<void> => {
 
 // --- Workout Sessions ---
 
-export const getMyWorkoutSessions = (): Promise<WorkoutSession[]> => {
-    return apiClient.get(`${API_URL}sessions/`).then(res => res.data);
+export const getMyWorkoutSessions = (params?: { page?: number; status?: string }): Promise<{ results: WorkoutSession[]; count: number; next: string | null; previous: string | null }> => {
+    return apiClient.get(`${API_URL}sessions/`, { params }).then(res => res.data);
 };
 
 export const getActiveWorkoutSession = (): Promise<WorkoutSession> => {
@@ -141,4 +141,23 @@ export const cancelWorkoutSession = (sessionId: number): Promise<WorkoutSession>
 
 export const logSet = (setData: LoggedSetInput): Promise<LoggedSet> => {
     return apiClient.post(`${API_URL}logged-sets/`, setData).then(res => res.data);
+};
+
+export const deleteWorkoutSession = (sessionId: number): Promise<void> => {
+    return apiClient.delete(`${API_URL}sessions/${sessionId}/`).then(res => res.data);
+};
+
+export const updateWorkoutSessionNotes = (sessionId: number, notes: string): Promise<WorkoutSession> => {
+    return apiClient.patch(`${API_URL}sessions/${sessionId}/`, { notes }).then(res => res.data);
+};
+
+export const updateLoggedSet = (
+    setId: number,
+    data: { actual_reps?: number; actual_weight?: string }
+): Promise<LoggedSet> => {
+    return apiClient.patch(`${API_URL}logged-sets/${setId}/`, data).then(res => res.data);
+};
+
+export const deleteLoggedSet = (setId: number): Promise<void> => {
+    return apiClient.delete(`${API_URL}logged-sets/${setId}/`).then(res => res.data);
 };
