@@ -5,6 +5,7 @@ import {
     startWorkoutSession,
     logSet,
     finishWorkoutSession,
+    cancelWorkoutSession,
     updateSessionProgress
 } from '@/api/workouts';
 import type {
@@ -28,7 +29,6 @@ let cachedExercises: Exercise[] | null = null;
 export default function WorkoutTrackerPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const hasInitialized = useRef(false);
     
     // --- Core State ---
     const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -48,15 +48,19 @@ export default function WorkoutTrackerPage() {
     // --- Timer State ---
     const [isResting, setIsResting] = useState(false);
     const [restTimer, setRestTimer] = useState(0);
+    const [targetRestTime, setTargetRestTime] = useState(0);
 
-    // --- Initialization ---
+    // --- Action State ---
+    const [isPerformingAction, setIsPerformingAction] = useState(false);
+
+    // Use ref to prevent multiple finish calls
+    const isFinishingRef = useRef(false);
+
+    // --- Initialization: Check for active session or start new one ---
     useEffect(() => {
-        if (hasInitialized.current) return;
-        hasInitialized.current = true;
-
         const initializeWorkout = async () => {
             try {
-                // Check for active session
+                // 1. Check if there's an active session
                 let activeSession: WorkoutSession | null = null;
                 try {
                     activeSession = await getActiveWorkoutSession();
@@ -67,7 +71,7 @@ export default function WorkoutTrackerPage() {
                     }
                 }
 
-                // Resume active session
+                // 2. If we have an active session, resume it
                 if (activeSession) {
                     if (!activeSession.plan_details) {
                         setError('Active session has no plan details.');
@@ -77,9 +81,12 @@ export default function WorkoutTrackerPage() {
 
                     setPlan(activeSession.plan_details);
                     setSession(activeSession);
+                    
+                    // Restore position
                     setCurrentGroupIndex(activeSession.current_group_index);
                     setCurrentSetIndex(activeSession.current_set_index);
 
+                    // Fetch exercises for this plan
                     const exerciseIds = new Set<number>();
                     activeSession.plan_details.groups.forEach(group => {
                         group.sets.forEach(set => exerciseIds.add(set.exercise));
@@ -90,6 +97,7 @@ export default function WorkoutTrackerPage() {
                     }
                     setExercises(cachedExercises);
 
+                    // Pre-fill current set
                     const currentGroup = activeSession.plan_details.groups[activeSession.current_group_index];
                     const currentSet = currentGroup?.sets[activeSession.current_set_index];
                     if (currentSet) {
@@ -97,11 +105,40 @@ export default function WorkoutTrackerPage() {
                         setWeight(currentSet.target_weight || '');
                     }
 
+                    // Calculate rest timer from last logged set if applicable
+                    if (activeSession.logged_sets && activeSession.logged_sets.length > 0) {
+                        const lastSet = activeSession.logged_sets[activeSession.logged_sets.length - 1];
+                        const lastSetTime = new Date(lastSet.completed_at).getTime();
+                        const now = Date.now();
+                        const elapsedSeconds = Math.floor((now - lastSetTime) / 1000);
+                        
+                        // Find the rest time for the last set
+                        const lastSetPlan = activeSession.plan_details.groups
+                            .flatMap(g => g.sets)
+                            .find(s => s.id === lastSet.planned_set);
+                        
+                        if (lastSetPlan?.rest_time_after && lastSetPlan.rest_time_after > 0) {
+                            const remainingRest = lastSetPlan.rest_time_after - elapsedSeconds;
+                            
+                            // Only show rest if we're still on the same set (haven't advanced yet)
+                            // Check if we're on the next set after the logged one
+                            const expectedNextSetIndex = (activeSession.logged_sets.length % activeSession.plan_details.groups[activeSession.current_group_index].sets.length);
+                            const actualCurrentSetIndex = activeSession.current_set_index;
+                            
+                            // If indexes match, we haven't advanced yet, so show rest
+                            if (remainingRest > 0 && expectedNextSetIndex === actualCurrentSetIndex) {
+                                setTargetRestTime(lastSetPlan.rest_time_after);
+                                setRestTimer(remainingRest);
+                                setIsResting(true);
+                            }
+                        }
+                    }
+
                     setIsLoading(false);
                     return;
                 }
 
-                // Start new session from plan
+                // 3. No active session - check if a plan was passed to start a new one
                 const planFromState: WorkoutPlan | undefined = location.state?.plan;
                 if (!planFromState) {
                     setError('No workout plan was selected and no active session found.');
@@ -117,6 +154,7 @@ export default function WorkoutTrackerPage() {
 
                 setPlan(planFromState);
 
+                // Fetch exercises
                 const exerciseIds = new Set<number>();
                 planFromState.groups.forEach(group => {
                     group.sets.forEach(set => exerciseIds.add(set.exercise));
@@ -127,12 +165,14 @@ export default function WorkoutTrackerPage() {
                 }
                 setExercises(cachedExercises);
                 
+                // Create new session
                 const newSession = await startWorkoutSession({
                     plan: planFromState.id,
                     date_started: new Date().toISOString(),
                 });
                 setSession(newSession);
 
+                // Pre-fill first set
                 const firstSet = planFromState.groups[0]?.sets[0];
                 if (firstSet) {
                     setReps(firstSet.target_reps || '');
@@ -150,7 +190,7 @@ export default function WorkoutTrackerPage() {
         initializeWorkout();
     }, []);
 
-    // --- Rest Timer ---
+    // --- Rest Timer Countdown ---
     useEffect(() => {
         if (!isResting || restTimer <= 0) {
             if (isResting && restTimer <= 0) {
@@ -187,7 +227,7 @@ export default function WorkoutTrackerPage() {
     const isLastSetInGroup = currentSet && currentGroup ? currentSetIndex === currentGroup.sets.length - 1 : false;
     const isLastGroup = plan ? currentGroupIndex === plan.groups.length - 1 : false;
 
-    // --- Pre-fill form ---
+    // --- Pre-fill form when set changes ---
     useEffect(() => {
         if (currentSet && !isResting) {
             setReps(currentSet.target_reps || '');
@@ -200,10 +240,12 @@ export default function WorkoutTrackerPage() {
 
     const handleLogSet = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!session || !currentSet || !currentExercise) {
-            setError('Invalid workout state.');
+        if (!session || !currentSet || !currentExercise || isPerformingAction) {
             return;
         }
+
+        setIsPerformingAction(true);
+        setError('');
 
         const setData: LoggedSetInput = {
             session_id: session.id,
@@ -212,6 +254,7 @@ export default function WorkoutTrackerPage() {
             order: (session.logged_sets?.length || 0) + 1,
             actual_reps: parseInt(reps) || 0,
             actual_weight: weight || '0',
+            // Update progress when logging set
             current_group_index: currentGroupIndex,
             current_set_index: isLastSetInGroup ? currentSetIndex : currentSetIndex + 1,
         };
@@ -219,6 +262,7 @@ export default function WorkoutTrackerPage() {
         try {
             const loggedSet = await logSet(setData);
             
+            // Update local session state
             setSession(prev => {
                 if (!prev) return null;
                 return { 
@@ -229,12 +273,22 @@ export default function WorkoutTrackerPage() {
                 };
             });
 
+            // --- Flow logic ---
             if (isLastSetInGroup) {
-                setReps('');
-                setWeight('');
+                // FIX 3: Auto-advance to next group (unless it's the last group)
+                if (!isLastGroup) {
+                    // Automatically move to next group
+                    await handleNextGroup();
+                } else {
+                    // Last group - clear form and wait for user to finish
+                    setReps('');
+                    setWeight('');
+                }
             } else {
+                // Move to next set
                 const rest = currentSet.rest_time_after;
                 if (rest && rest > 0) {
+                    setTargetRestTime(rest);
                     setRestTimer(rest);
                     setIsResting(true);
                 }
@@ -244,50 +298,61 @@ export default function WorkoutTrackerPage() {
         } catch (err) {
             console.error('Failed to log set:', err);
             setError('Failed to log set. Please try again.');
+        } finally {
+            setIsPerformingAction(false);
         }
     };
     
     const handleNextGroup = async () => {
-        if (!session) return;
+        if (!session || isPerformingAction) return;
+
+        setIsPerformingAction(true);
 
         if (isLastGroup) {
-            handleFinishWorkout();
-        } else {
-            const newGroupIndex = currentGroupIndex + 1;
-            
-            try {
-                await updateSessionProgress(session.id, {
-                    current_group_index: newGroupIndex,
-                    current_set_index: 0
-                });
+            await handleFinishWorkout();
+            return;
+        }
 
-                setCurrentGroupIndex(newGroupIndex);
-                setCurrentSetIndex(0);
-                setIsResting(false);
-                setRestTimer(0);
-            } catch (err) {
-                console.error('Failed to update progress:', err);
-                setError('Failed to save progress.');
-            }
+        const newGroupIndex = currentGroupIndex + 1;
+        
+        try {
+            // Update progress on backend
+            await updateSessionProgress(session.id, {
+                current_group_index: newGroupIndex,
+                current_set_index: 0
+            });
+
+            // Update local state
+            setCurrentGroupIndex(newGroupIndex);
+            setCurrentSetIndex(0);
+            setIsResting(false);
+            setRestTimer(0);
+            setTargetRestTime(0);
+        } catch (err) {
+            console.error('Failed to update progress:', err);
+            setError('Failed to save progress.');
+        } finally {
+            setIsPerformingAction(false);
         }
     };
 
-    const handleFinishWorkout = async (isCancelling = false) => {
-        if (!session) return;
+    const handleFinishWorkout = async () => {
+        if (!session || isFinishingRef.current) return;
         
-        const confirmMessage = isCancelling 
-            ? 'Are you sure you want to end this workout? Your progress will be saved.'
-            : 'Are you sure you want to finish this workout?';
-            
-        if (!window.confirm(confirmMessage)) return;
+        // For last set, don't ask for confirmation
+        const shouldConfirm = session.logged_sets.length === 0;
+        
+        if (shouldConfirm && !window.confirm('Are you sure you want to finish this workout?')) {
+            return;
+        }
+
+        isFinishingRef.current = true;
+        setIsPerformingAction(true);
         
         try {
             await finishWorkoutSession(session.id);
             
-            // Clear state
-            hasInitialized.current = false;
-            cachedExercises = null;
-            
+            // Clear all state
             setSession(null);
             setPlan(null);
             setExercises([]);
@@ -297,18 +362,96 @@ export default function WorkoutTrackerPage() {
             setWeight('');
             setIsResting(false);
             setRestTimer(0);
+            setTargetRestTime(0);
             
+            // Notify layout to update
             window.dispatchEvent(new Event('workoutFinished'));
+            
+            // Navigate to history
             navigate('/history', { replace: true });
         } catch (err) {
             console.error('Failed to finish workout:', err);
             setError('Failed to save workout.');
+            isFinishingRef.current = false;
+        } finally {
+            setIsPerformingAction(false);
+        }
+    };
+
+    const handleCancelWorkout = async () => {
+        if (!session || isFinishingRef.current) return;
+        if (!window.confirm('Are you sure you want to cancel this workout? All progress will be saved.')) return;
+        
+        isFinishingRef.current = true;
+        setIsPerformingAction(true);
+        
+        try {
+            await cancelWorkoutSession(session.id);
+            
+            // Clear all state BEFORE navigating
+            setSession(null);
+            setPlan(null);
+            setExercises([]);
+            setCurrentGroupIndex(0);
+            setCurrentSetIndex(0);
+            setReps('');
+            setWeight('');
+            setIsResting(false);
+            setRestTimer(0);
+            setTargetRestTime(0);
+            
+            // Notify layout to update
+            window.dispatchEvent(new Event('workoutFinished'));
+            
+            // Navigate with replace to prevent back button issues
+            navigate('/history', { replace: true });
+        } catch (err) {
+            console.error('Failed to cancel workout:', err);
+            setError('Failed to cancel workout.');
+            isFinishingRef.current = false;
+        } finally {
+            setIsPerformingAction(false);
         }
     };
     
-    const handleSkipRest = () => {
-        setRestTimer(0);
-        setIsResting(false);
+    const handleSkipRest = async () => {
+        if (!session || isPerformingAction) return;
+
+        setIsPerformingAction(true);
+
+        // FIX 2: Update backend when skipping rest
+        // This advances us to the next set on the backend
+        try {
+            const nextSetIndex = currentSetIndex + 1;
+            
+            await updateSessionProgress(session.id, {
+                current_group_index: currentGroupIndex,
+                current_set_index: nextSetIndex
+            });
+
+            // Update local state
+            setRestTimer(0);
+            setIsResting(false);
+            setTargetRestTime(0);
+            
+            // Update session state
+            setSession(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    current_group_index: currentGroupIndex,
+                    current_set_index: nextSetIndex
+                };
+            });
+        } catch (err) {
+            console.error('Failed to skip rest:', err);
+            // Even if backend fails, update UI
+            setRestTimer(0);
+            setIsResting(false);
+            setTargetRestTime(0);
+        } finally {
+            setIsPerformingAction(false);
+        }
     };
 
     // --- Render Logic ---
@@ -337,6 +480,8 @@ export default function WorkoutTrackerPage() {
 
     // --- Render Rest Timer ---
     if (isResting) {
+        const progress = targetRestTime > 0 ? ((targetRestTime - restTimer) / targetRestTime) * 100 : 0;
+        
         return (
             <div className="flex flex-col items-center justify-center min-h-[80vh] text-center p-4">
                 <div className="mb-4">
@@ -345,14 +490,43 @@ export default function WorkoutTrackerPage() {
                         <p className="text-lg text-gray-600 mt-2">{currentExercise.name}</p>
                     )}
                 </div>
-                <h1 className="text-8xl sm:text-9xl font-bold my-8 font-mono">
-                    {formatTime(restTimer)}
-                </h1>
+                
+                {/* Progress Ring */}
+                <div className="relative w-64 h-64 mb-8">
+                    <svg className="w-full h-full transform -rotate-90">
+                        <circle
+                            cx="128"
+                            cy="128"
+                            r="120"
+                            stroke="#e5e7eb"
+                            strokeWidth="8"
+                            fill="none"
+                        />
+                        <circle
+                            cx="128"
+                            cy="128"
+                            r="120"
+                            stroke="#4f46e5"
+                            strokeWidth="8"
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 120}`}
+                            strokeDashoffset={`${2 * Math.PI * 120 * (1 - progress / 100)}`}
+                            className="transition-all duration-1000"
+                        />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-6xl font-bold font-mono">
+                            {formatTime(restTimer)}
+                        </span>
+                    </div>
+                </div>
+                
                 <button
                     onClick={handleSkipRest}
-                    className="bg-indigo-600 text-white px-8 py-4 rounded-md text-lg hover:bg-indigo-700"
+                    disabled={isPerformingAction}
+                    className="bg-indigo-600 text-white px-8 py-4 rounded-md text-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Skip Rest
+                    {isPerformingAction ? 'Skipping...' : 'Skip Rest'}
                 </button>
             </div>
         );
@@ -438,6 +612,7 @@ export default function WorkoutTrackerPage() {
                                 className="w-full p-4 border-2 border-gray-300 rounded-md text-xl focus:border-indigo-500 outline-none"
                                 required
                                 min="0"
+                                disabled={isPerformingAction}
                             />
                         </div>
                         <div>
@@ -453,15 +628,17 @@ export default function WorkoutTrackerPage() {
                                 className="w-full p-4 border-2 border-gray-300 rounded-md text-xl focus:border-indigo-500 outline-none"
                                 required
                                 min="0"
+                                disabled={isPerformingAction}
                             />
                         </div>
                     </div>
                     
                     <button
                         type="submit"
-                        className="w-full p-4 bg-green-600 text-white rounded-md text-xl font-bold hover:bg-green-700 transition-colors"
+                        disabled={isPerformingAction}
+                        className="w-full p-4 bg-green-600 text-white rounded-md text-xl font-bold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {isLastSetInGroup ? 'Log Final Set' : 'Log Set & Continue'}
+                        {isPerformingAction ? 'Logging...' : (isLastSetInGroup ? (isLastGroup ? 'Log Final Set' : 'Log Set & Next Group') : 'Log Set & Continue')}
                     </button>
                 </form>
 
@@ -472,13 +649,14 @@ export default function WorkoutTrackerPage() {
                 )}
             </div>
 
-            {/* Navigation */}
-            {isLastSetInGroup && (
+            {/* Navigation - Only show if last set and last group */}
+            {isLastSetInGroup && isLastGroup && (
                 <button
-                    onClick={handleNextGroup}
-                    className="w-full p-4 bg-indigo-600 text-white rounded-md text-xl font-bold hover:bg-indigo-700 mb-4"
+                    onClick={handleFinishWorkout}
+                    disabled={isPerformingAction}
+                    className="w-full p-4 bg-indigo-600 text-white rounded-md text-xl font-bold hover:bg-indigo-700 mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isLastGroup ? '✓ Finish Workout' : 'Next Exercise Group →'}
+                    {isPerformingAction ? 'Finishing...' : '✓ Finish Workout'}
                 </button>
             )}
 
@@ -488,12 +666,13 @@ export default function WorkoutTrackerPage() {
                 </div>
             )}
 
-            {/* End Workout Button */}
+            {/* Cancel Button */}
             <button
-                onClick={() => handleFinishWorkout(true)}
-                className="w-full p-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                onClick={handleCancelWorkout}
+                disabled={isPerformingAction}
+                className="w-full p-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                End Workout
+                {isPerformingAction ? 'Canceling...' : 'Cancel Workout'}
             </button>
         </div>
     );

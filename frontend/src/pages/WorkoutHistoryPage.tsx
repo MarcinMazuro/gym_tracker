@@ -70,23 +70,6 @@ export default function WorkoutHistoryPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const handleFilterChange = (newFilter: 'all' | 'completed') => {
-        setFilter(newFilter);
-        setCurrentPage(1); // Reset to first page when filter changes
-    };
-
-    const getStatusBadge = (status: string) => {
-        const styles = {
-            completed: 'bg-green-100 text-green-800',
-            in_progress: 'bg-blue-100 text-blue-800',
-        };
-        return (
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'}`}>
-                {status === 'in_progress' ? 'In Progress' : 'Completed'}
-            </span>
-        );
-    };
-
     if (isLoading && sessions.length === 0) {
         return <div className="flex justify-center mt-20"><Spinner /></div>;
     }
@@ -101,30 +84,6 @@ export default function WorkoutHistoryPage() {
                 <p className="text-gray-600 mb-4">
                     Total workouts: {totalCount}
                 </p>
-                
-                {/* Filter Buttons */}
-                <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => handleFilterChange('all')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                            filter === 'all'
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                    >
-                        All
-                    </button>
-                    <button
-                        onClick={() => handleFilterChange('completed')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                            filter === 'completed'
-                                ? 'bg-indigo-600 text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
-                    >
-                        Completed
-                    </button>
-                </div>
             </div>
 
             {/* Error Display */}
@@ -141,11 +100,6 @@ export default function WorkoutHistoryPage() {
                 </div>
             ) : sessions.length === 0 ? (
                 <div className="text-center py-12">
-                    <p className="text-gray-500 text-lg mb-4">
-                        {filter === 'all' 
-                            ? "You haven't completed any workouts yet."
-                            : `No ${filter} workouts found.`}
-                    </p>
                     <Link
                         to="/workouts"
                         className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-md hover:bg-indigo-700"
@@ -168,7 +122,6 @@ export default function WorkoutHistoryPage() {
                                                 <h2 className="text-lg sm:text-xl font-bold text-indigo-600">
                                                     {session.plan_name || 'Custom Workout'}
                                                 </h2>
-                                                {getStatusBadge(session.status)}
                                             </div>
                                             
                                             <div className="text-sm text-gray-600 space-y-1">

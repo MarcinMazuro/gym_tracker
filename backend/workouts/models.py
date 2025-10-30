@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from exercises.models import Exercise
+from django.utils import timezone
 
 # Get the user model defined in 'accounts' app
 User = settings.AUTH_USER_MODEL
@@ -111,7 +112,28 @@ class LoggedSet(models.Model):
     actual_reps = models.PositiveIntegerField()
     actual_weight = models.DecimalField(max_digits=6, decimal_places=2)
     # The rest time the user *actually* took
-    actual_rest_time = models.PositiveIntegerField(null=True, blank=True, help_text="Actual rest in seconds")
+    actual_rest_time = models.PositiveIntegerField(null=True, blank=True, help_text="Calculated rest in seconds from previous set")
+    completed_at = models.DateTimeField(default=timezone.now, help_text="When this set was completed")
+
 
     class Meta:
         ordering = ['order']
+
+    def save(self, *args, **kwargs):
+        """
+        Auto-calculate rest time from the previous set if not provided.
+        """
+        if not self.actual_rest_time and self.order > 1:
+            # Get the previous set
+            previous_set = LoggedSet.objects.filter(
+                session=self.session,
+                order=self.order - 1
+            ).first()
+            
+            if previous_set and previous_set.completed_at:
+                # Calculate seconds between sets
+                time_diff = self.completed_at - previous_set.completed_at
+                self.actual_rest_time = int(time_diff.total_seconds())
+        
+        super().save(*args, **kwargs)
+        

@@ -37,6 +37,7 @@ export interface LoggedSet {
     actual_reps: number;
     actual_weight: string;
     actual_rest_time?: number | null;
+    completed_at: string;
 }
 
 export type LoggedSetInput = {
@@ -47,7 +48,6 @@ export type LoggedSetInput = {
     actual_reps: number;
     actual_weight: string | number;
     actual_rest_time?: number | null;
-    // Optional: update progress when logging set
     current_group_index?: number;
     current_set_index?: number;
 };
@@ -58,7 +58,7 @@ export interface WorkoutSession {
     plan?: number | null;
     plan_name?: string | null;
     plan_details?: WorkoutPlan;
-    status: 'in_progress' | 'completed' | 'cancelled';
+    status: 'in_progress' | 'completed';
     current_group_index: number;
     current_set_index: number;
     date_started: string;

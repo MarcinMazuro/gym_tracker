@@ -89,8 +89,10 @@ class LoggedSetSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = LoggedSet
-        fields = '__all__'
-        read_only_fields = ['session'] # Session will be set in the View
+        fields = ['id', 'session', 'exercise', 'planned_set', 'order', 'actual_reps', 
+                  'actual_weight', 'actual_rest_time', 'completed_at']
+        read_only_fields = ['session', 'completed_at']
+
 
 
 class WorkoutSessionSerializer(serializers.ModelSerializer):

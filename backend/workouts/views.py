@@ -17,14 +17,10 @@ class IsOwner(permissions.BasePermission):
     Custom permission to only allow owners of an object to view or edit it.
     """
     def has_object_permission(self, request, view, obj):
-        # The 'owner' field exists on WorkoutPlan and WorkoutSession
         if hasattr(obj, 'owner'):
             return obj.owner == request.user
-        
-        # For LoggedSet, we check the owner of the parent session
         if hasattr(obj, 'session'):
             return obj.session.owner == request.user
-            
         return False
 
 # Workout Plan ViewSet
@@ -70,13 +66,10 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         ).first()
         
         if active_session:
-            return Response(
-                {
-                    'error': 'You already have an active workout session.',
-                    'active_session': WorkoutSessionSerializer(active_session).data
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Auto-cancel the old session
+            active_session.status = 'cancelled'
+            active_session.date_finished = timezone.now()
+            active_session.save()
         
         serializer.save(owner=self.request.user)
 
@@ -133,7 +126,6 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
     def finish(self, request, pk=None):
         """
         Mark the session as completed.
-        Works for both finishing and "cancelling" - both just mark as completed.
         """
         session = self.get_object()
         
@@ -150,34 +142,25 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(session)
         return Response(serializer.data)
 
-    def update(self, request, *args, **kwargs):
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
         """
-        Allow updating session notes.
-        """
-        session = self.get_object()
-        
-        if 'notes' in request.data:
-            session.notes = request.data['notes']
-            session.save()
-        
-        serializer = self.get_serializer(session)
-        return Response(serializer.data)
-
-    def destroy(self, request, *args, **kwargs):
-        """
-        Allow deleting workout sessions.
+        Mark the session as cancelled.
         """
         session = self.get_object()
         
-        # Prevent deleting active sessions
-        if session.status == 'in_progress':
+        if session.status != 'in_progress':
             return Response(
-                {'error': 'Cannot delete an active workout session. Please finish it first.'},
+                {'error': 'Session is already finished.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        session.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        session.status = 'cancelled'
+        session.date_finished = timezone.now()
+        session.save()
+        
+        serializer = self.get_serializer(session)
+        return Response(serializer.data)
 
 
 class LoggedSetViewSet(viewsets.ModelViewSet):
@@ -226,34 +209,3 @@ class LoggedSetViewSet(viewsets.ModelViewSet):
         
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-    def update(self, request, *args, **kwargs):
-        """
-        Allow updating logged sets (reps, weight).
-        """
-        logged_set = self.get_object()
-        
-        # Only allow updating if session is completed
-        if logged_set.session.status not in ['in_progress', 'completed']:
-            return Response(
-                {'error': 'Cannot modify sets from this session.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        return super().update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        """
-        Allow deleting logged sets.
-        """
-        logged_set = self.get_object()
-        
-        # Only allow deleting if session is completed
-        if logged_set.session.status not in ['in_progress', 'completed']:
-            return Response(
-                {'error': 'Cannot delete sets from this session.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        return super().destroy(request, *args, **kwargs)
-    
