@@ -57,7 +57,7 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         """
         Instantiates and returns the list of permissions that this view requires.
         """
-        if self.action == 'user_sessions':
+        if self.action in ['user_sessions', 'public_detail']:
             # For viewing public profiles, only require authentication
             return [permissions.IsAuthenticated()]
         # For all other actions, require ownership
@@ -158,6 +158,29 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
             return self.get_paginated_response(serializer.data)
             
         serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='public')
+    def public_detail(self, request, pk=None):
+        """
+        Get the details of a single workout session, if the owner's profile is public.
+        """
+        session = get_object_or_404(
+            WorkoutSession.objects.prefetch_related(
+                'logged_sets__exercise',
+                'plan__groups__sets__exercise'
+            ),
+            pk=pk
+        )
+
+        # Check if the owner's profile is public
+        if not hasattr(session.owner, 'profile') or not session.owner.profile.is_public:
+            return Response(
+                {'detail': 'This user\'s workout history is not public.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = self.get_serializer(session)
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch'])

@@ -125,6 +125,10 @@ export const getWorkoutSessionDetails = (sessionId: number): Promise<WorkoutSess
     return apiClient.get(`${API_URL}sessions/${sessionId}/`).then(res => res.data);
 };
 
+export const getPublicWorkoutSessionDetails = (sessionId: number): Promise<WorkoutSession> => {
+    return apiClient.get(`${API_URL}sessions/${sessionId}/public/`).then(res => res.data);
+};
+
 export const updateSessionProgress = (
     sessionId: number,
     progress: UpdateProgressInput

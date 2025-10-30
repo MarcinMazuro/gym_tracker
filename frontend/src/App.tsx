@@ -22,6 +22,7 @@ import WorkoutTrackerPage from './pages/WorkoutTrackerPage';
 import SessionDetailPage from './pages/SessionDetailPage';
 import WorkoutPlansPage from './pages/WorkoutPlansPage';
 import WorkoutBuilderPage from './pages/WorkoutBuilderPage';
+import PublicWorkoutDetailPage from './pages/PublicWorkoutDetailPage';
 
 function App() {
   return (
@@ -60,6 +61,7 @@ function App() {
             {/* Public profile routes */}
             <Route path="profiles" element={<ProfilesListPage />} />
             <Route path="profiles/:username" element={<PublicProfilePage />} />
+            <Route path="/workouts/:sessionId/public" element={<PublicWorkoutDetailPage />} />
 
             {/* 404 - Not found */}
             <Route path="*" element={<ErrorPage />} />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getPublicWorkoutSessions } from '@/api/workouts';
 import type { WorkoutSession } from '@/api/workouts';
 import { Spinner } from '@/components/common/Spinner';
@@ -83,7 +84,11 @@ export function PublicWorkoutHistory({ username }: PublicWorkoutHistoryProps) {
             
             <div className="space-y-3">
                 {sessions.map(session => (
-                    <div key={session.id} className="p-4 bg-white shadow-md rounded-lg border border-gray-200">
+                    <Link
+                        key={session.id}
+                        to={`/workouts/${session.id}/public`}
+                        className="block p-4 bg-white shadow-md rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
+                    >
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
                             <div className="flex-1">
                                 <h3 className="text-lg font-bold text-indigo-600">
@@ -111,7 +116,7 @@ export function PublicWorkoutHistory({ username }: PublicWorkoutHistoryProps) {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </Link>
                 ))}
             </div>
         </div>
