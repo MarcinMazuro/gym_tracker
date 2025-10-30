@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404, render
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+from django.db import transaction, IntegrityError
 from rest_framework.exceptions import ValidationError
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
@@ -52,11 +53,21 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
     """
     permission_classes = [permissions.IsAuthenticated, IsOwner]
 
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action == 'user_sessions':
+            # For viewing public profiles, only require authentication
+            return [permissions.IsAuthenticated()]
+        # For all other actions, require ownership
+        return [permissions.IsAuthenticated(), IsOwner()]
+
     def get_serializer_class(self):
-        if self.action == 'list':
+        if self.action == 'list' or self.action == 'user_sessions':
             return WorkoutSessionListSerializer
         return WorkoutSessionSerializer
-
+    
     def get_queryset(self):
         return WorkoutSession.objects.filter(owner=self.request.user).prefetch_related(
             'logged_sets__exercise',
@@ -64,32 +75,34 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         ).order_by('-date_started')
 
     def perform_create(self, serializer):
-        # Throttle rapid creation: prevent creating multiple sessions within a short window
-        # This helps avoid duplicates when the client retries (e.g. after auth refresh)
-        window_seconds = 30
-        threshold = timezone.now() - timedelta(seconds=window_seconds)
+        """
+        Atomically create a new workout session, preventing duplicates
+        using a database constraint.
+        """
+        user = self.request.user
+        try:
+            with transaction.atomic():
+                # If an old session is 'in_progress', auto-cancel it.
+                # This is now safe from race conditions.
+                WorkoutSession.objects.filter(
+                    owner=user,
+                    status='in_progress'
+                ).update(status='cancelled', date_finished=timezone.now())
 
-        recent_exists = WorkoutSession.objects.filter(
-            owner=self.request.user,
-            date_started__gte=threshold
-        ).exists()
-
-        if recent_exists:
-            raise ValidationError({'detail': f'A workout session was created less than {window_seconds} seconds ago. Please resume the active session or wait a moment.'})
-
-        # Check if user already has an active session and mark it cancelled if present
-        active_session = WorkoutSession.objects.filter(
-            owner=self.request.user,
-            status='in_progress'
-        ).first()
-
-        if active_session:
-            # Auto-cancel the old session
-            active_session.status = 'cancelled'
-            active_session.date_finished = timezone.now()
-            active_session.save()
-
-        serializer.save(owner=self.request.user)
+                # Proceed to save the new session.
+                # If another request created a session in the meantime,
+                # the UniqueConstraint will raise an IntegrityError.
+                serializer.save(owner=user)
+        except IntegrityError:
+            # This block runs if the UniqueConstraint was violated.
+            # It means a concurrent request successfully created an active session.
+            # We find that session and return it to the client.
+            active_session = WorkoutSession.objects.get(owner=user, status='in_progress')
+            session_serializer = self.get_serializer(active_session)
+            raise ValidationError({
+                'detail': 'An active session already exists.',
+                'active_session': session_serializer.data
+            })
 
     @action(detail=False, methods=['get'])
     def active(self, request):
@@ -117,32 +130,35 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], url_path='user/(?P<username>[^/.]+)')
     def user_sessions(self, request, username=None):
         """
-        Get workout sessions for a specific user (only if their profile is public).
+        Get completed workout sessions for a specific user (only if their profile is public).
         """
-        user = get_object_or_404(User, username=username)
-        
+        # Use case-insensitive lookup for username
+        user = get_object_or_404(User, username__iexact=username)
+
         # Check if the user's profile is public
         if not hasattr(user, 'profile') or not user.profile.is_public:
             return Response(
                 {'detail': 'This user\'s workout history is not public.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        # Get completed sessions only for public viewing
-        sessions = WorkoutSession.objects.filter(
-
+        
+        # Build a new queryset from scratch, ignoring the default get_queryset()
+        queryset = WorkoutSession.objects.filter(
+            owner=user,
             status='completed'
         ).prefetch_related(
-            'logged_sets__exercise'
+            'logged_sets__exercise',
+            'plan__groups__sets__exercise'
         ).order_by('-date_started')
-        print("Fetched sessions:", sessions.count())
-        print("Fetched sessions:", sessions)
-        # Paginate
-        page = self.paginate_queryset(sessions.filter(owner="16"))
-        if page is not None:
-            serializer = WorkoutSessionListSerializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
+
         
-        serializer = WorkoutSessionListSerializer(sessions, many=True)
+        # Paginate the results
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+            
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch'])

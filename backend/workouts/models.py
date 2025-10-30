@@ -90,6 +90,13 @@ class WorkoutSession(models.Model):
 
     class Meta:
         ordering = ['-date_started']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner'],
+                condition=models.Q(status='in_progress'),
+                name='unique_in_progress_session_for_owner'
+            )
+        ]
 
     def __str__(self):
         return f"Session for {self.owner.username} on {self.date_started.strftime('%Y-%m-%d')}"
