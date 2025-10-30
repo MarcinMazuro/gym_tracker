@@ -172,6 +172,9 @@ export default function WorkoutTrackerPage() {
                 });
                 setSession(newSession);
 
+                // Clear location.state to prevent accidental new sessions on back navigation
+                navigate('.', { replace: true, state: null });
+
                 // Pre-fill first set
                 const firstSet = planFromState.groups[0]?.sets[0];
                 if (firstSet) {
@@ -364,8 +367,8 @@ export default function WorkoutTrackerPage() {
             setRestTimer(0);
             setTargetRestTime(0);
             
-            // Notify layout to update
-            window.dispatchEvent(new Event('workoutFinished'));
+            // Clear location.state to prevent accidental new sessions on back navigation
+            navigate('.', { replace: true, state: null });
             
             // Navigate to history
             navigate('/history', { replace: true });
@@ -400,8 +403,8 @@ export default function WorkoutTrackerPage() {
             setRestTimer(0);
             setTargetRestTime(0);
             
-            // Notify layout to update
-            window.dispatchEvent(new Event('workoutFinished'));
+            // Clear location.state to prevent accidental new sessions on back navigation
+            navigate('.', { replace: true, state: null });
             
             // Navigate with replace to prevent back button issues
             navigate('/history', { replace: true });

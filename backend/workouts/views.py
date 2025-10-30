@@ -1,5 +1,7 @@
 from django.shortcuts import render
 from django.utils import timezone
+from datetime import timedelta
+from rest_framework.exceptions import ValidationError
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
@@ -59,18 +61,31 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         ).order_by('-date_started')
 
     def perform_create(self, serializer):
-        # Check if user already has an active session
+        # Throttle rapid creation: prevent creating multiple sessions within a short window
+        # This helps avoid duplicates when the client retries (e.g. after auth refresh)
+        window_seconds = 30
+        threshold = timezone.now() - timedelta(seconds=window_seconds)
+
+        recent_exists = WorkoutSession.objects.filter(
+            owner=self.request.user,
+            date_started__gte=threshold
+        ).exists()
+
+        if recent_exists:
+            raise ValidationError({'detail': f'A workout session was created less than {window_seconds} seconds ago. Please resume the active session or wait a moment.'})
+
+        # Check if user already has an active session and mark it cancelled if present
         active_session = WorkoutSession.objects.filter(
             owner=self.request.user,
             status='in_progress'
         ).first()
-        
+
         if active_session:
             # Auto-cancel the old session
             active_session.status = 'cancelled'
             active_session.date_finished = timezone.now()
             active_session.save()
-        
+
         serializer.save(owner=self.request.user)
 
     @action(detail=False, methods=['get'])
