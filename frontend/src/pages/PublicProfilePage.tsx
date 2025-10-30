@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { getPublicProfileByUsername } from '../api/profiles';
 import type { PublicProfile } from '../api/profiles';
 import { ProfileView } from '@/components/profile/ProfileView';
+import { PublicWorkoutHistory } from '@/components/profile/PublicWorkoutHistory';
 
 function PublicProfilePage() {
     const { username } = useParams<{ username: string }>();
@@ -23,7 +24,16 @@ function PublicProfilePage() {
         <div className="container mx-auto p-4 md:p-8">
             {isLoading && <div className="text-center p-8">Loading profile...</div>}
             {error && <div className="text-center p-8 text-red-500">{error}</div>}
-            {profile && <ProfileView profile={profile} isOwner={false} />}
+            {profile && (
+                <div className="space-y-8">
+                    <ProfileView profile={profile} isOwner={false} />
+                    
+                    {/* Workout History Section */}
+                    <div className="max-w-4xl mx-auto mt-10 p-4 sm:p-8 bg-white rounded-lg shadow-md">
+                        <PublicWorkoutHistory username={profile.username} />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

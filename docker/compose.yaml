@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=gym_tracker_db
+      - POSTGRES_USER=gym_user
+      - POSTGRES_PASSWORD=gym_password
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gym_user -d gym_tracker_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ..  # Set context to the project root (one level up)
+      dockerfile: docker/backend.Dockerfile # Path to Dockerfile from the context
+    command: sh -c "python backend/manage.py makemigrations 
+      && python backend/manage.py migrate 
+      && python backend/manage.py load_exercises backend/exercises/fixtures/exercises.json 
+      && python backend/manage.py runserver 0.0.0.0:8000"
+      - ..:/app # Mount the entire project root into the container
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=secret-key-for-development
+      - DEBUG=1
+      - DB_NAME=gym_tracker_db
+      - DB_USER=gym_user
+      - DB_PASSWORD=gym_password
+      - DB_HOST=db
+      - DB_PORT=5432
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .. # Set context to the project root
+      dockerfile: docker/frontend.Dockerfile # Path to Dockerfile from the context
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ../frontend:/app # Mount only the frontend directory
+      - /app/node_modules # Anonymous volume to persist node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - WDS_SOCKET_PORT=5173
+      - VITE_API_BASE_URL=http://backend:8000/api/v1
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

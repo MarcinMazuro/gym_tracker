@@ -15,6 +15,14 @@ import ErrorPage from './pages/ErrorPage';
 import EditProfilePage from './pages/EditProfilePage';
 import ProfilesListPage from './pages/ProfilesListPage';
 import PublicProfilePage from './pages/PublicProfilePage';
+import ExercisesListPage from './pages/ExercisesListPage';
+import ExerciseDetailPage from './pages/ExerciseDetailPage';
+import WorkoutHistoryPage from './pages/WorkoutHistoryPage';
+import WorkoutTrackerPage from './pages/WorkoutTrackerPage';
+import SessionDetailPage from './pages/SessionDetailPage';
+import WorkoutPlansPage from './pages/WorkoutPlansPage';
+import WorkoutBuilderPage from './pages/WorkoutBuilderPage';
+import PublicWorkoutDetailPage from './pages/PublicWorkoutDetailPage';
 
 function App() {
   return (
@@ -40,9 +48,20 @@ function App() {
             <Route path="change-password" element={<ProtectedRoute><ChangePasswordPage /></ProtectedRoute>} />
             <Route path="profile/edit" element={<ProtectedRoute><EditProfilePage /></ProtectedRoute>} />
 
+            <Route path="exercises" element={<ProtectedRoute><ExercisesListPage /></ProtectedRoute>} />
+            <Route path="exercises/:id" element={<ProtectedRoute><ExerciseDetailPage /></ProtectedRoute>} />
+
+            <Route path="/history" element={<WorkoutHistoryPage />} />
+            <Route path="/history/:sessionId" element={<SessionDetailPage />} />
+            <Route path="/tracker" element={<WorkoutTrackerPage />} />
+            <Route path="/workouts" element={<WorkoutPlansPage />} />
+            <Route path="/workouts/new" element={<WorkoutBuilderPage />} />
+            <Route path="/workouts/:planId/edit" element={<WorkoutBuilderPage/>} />
+
             {/* Public profile routes */}
             <Route path="profiles" element={<ProfilesListPage />} />
             <Route path="profiles/:username" element={<PublicProfilePage />} />
+            <Route path="/workouts/:sessionId/public" element={<PublicWorkoutDetailPage />} />
 
             {/* 404 - Not found */}
             <Route path="*" element={<ErrorPage />} />
