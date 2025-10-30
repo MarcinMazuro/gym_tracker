@@ -145,7 +145,6 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
         # Build a new queryset from scratch, ignoring the default get_queryset()
         queryset = WorkoutSession.objects.filter(
             owner=user,
-            status='completed'
         ).prefetch_related(
             'logged_sets__exercise',
             'plan__groups__sets__exercise'
