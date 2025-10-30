@@ -16,6 +16,7 @@ import type {
 } from '@/api/workouts';
 import { getExercisesByIds } from '@/api/exercises';
 import type { Exercise } from '@/api/exercises';
+import { ExerciseSelector } from '@/components/workouts/ExerciseSelector';
 import { Spinner } from '@/components/common/Spinner';
 
 const formatTime = (seconds: number): string => {
@@ -42,8 +43,14 @@ export default function WorkoutTrackerPage() {
     const [currentSetIndex, setCurrentSetIndex] = useState(0);
     
     // --- Form State ---
-    const [reps, setReps] = useState('');
-    const [weight, setWeight] = useState('');
+    const [reps, setReps] = useState('0');
+    const [weight, setWeight] = useState('0');
+
+    // --- Custom Exercise State ---
+    const [showCustomExercise, setShowCustomExercise] = useState(false);
+    const [customExercise, setCustomExercise] = useState<Exercise | null>(null);
+    const [customReps, setCustomReps] = useState('0');
+    const [customWeight, setCustomWeight] = useState('0');
 
     // --- Timer State ---
     const [isResting, setIsResting] = useState(false);
@@ -91,18 +98,20 @@ export default function WorkoutTrackerPage() {
                     activeSession.plan_details.groups.forEach(group => {
                         group.sets.forEach(set => exerciseIds.add(set.exercise));
                     });
+                    // Also add exercises from logged sets
+                    activeSession.logged_sets.forEach(set => exerciseIds.add(set.exercise));
 
                     if (!cachedExercises) {
                         cachedExercises = await getExercisesByIds(Array.from(exerciseIds));
                     }
                     setExercises(cachedExercises);
 
-                    // Pre-fill current set
+                    // Pre-fill current set - DEFAULT TO 0 if not specified
                     const currentGroup = activeSession.plan_details.groups[activeSession.current_group_index];
                     const currentSet = currentGroup?.sets[activeSession.current_set_index];
                     if (currentSet) {
-                        setReps(currentSet.target_reps || '');
-                        setWeight(currentSet.target_weight || '');
+                        setReps(currentSet.target_reps || '0');
+                        setWeight(currentSet.target_weight || '0');
                     }
 
                     // Calculate rest timer from last logged set if applicable
@@ -112,20 +121,15 @@ export default function WorkoutTrackerPage() {
                         const now = Date.now();
                         const elapsedSeconds = Math.floor((now - lastSetTime) / 1000);
                         
-                        // Find the rest time for the last set
                         const lastSetPlan = activeSession.plan_details.groups
                             .flatMap(g => g.sets)
                             .find(s => s.id === lastSet.planned_set);
                         
                         if (lastSetPlan?.rest_time_after && lastSetPlan.rest_time_after > 0) {
                             const remainingRest = lastSetPlan.rest_time_after - elapsedSeconds;
-                            
-                            // Only show rest if we're still on the same set (haven't advanced yet)
-                            // Check if we're on the next set after the logged one
                             const expectedNextSetIndex = (activeSession.logged_sets.length % activeSession.plan_details.groups[activeSession.current_group_index].sets.length);
                             const actualCurrentSetIndex = activeSession.current_set_index;
                             
-                            // If indexes match, we haven't advanced yet, so show rest
                             if (remainingRest > 0 && expectedNextSetIndex === actualCurrentSetIndex) {
                                 setTargetRestTime(lastSetPlan.rest_time_after);
                                 setRestTimer(remainingRest);
@@ -172,14 +176,14 @@ export default function WorkoutTrackerPage() {
                 });
                 setSession(newSession);
 
-                // Clear location.state to prevent accidental new sessions on back navigation
+                // Clear location.state
                 navigate('.', { replace: true, state: null });
 
-                // Pre-fill first set
+                // Pre-fill first set - DEFAULT TO 0 if not specified
                 const firstSet = planFromState.groups[0]?.sets[0];
                 if (firstSet) {
-                    setReps(firstSet.target_reps || '');
-                    setWeight(firstSet.target_weight || '');
+                    setReps(firstSet.target_reps || '0');
+                    setWeight(firstSet.target_weight || '0');
                 }
 
             } catch (err: any) {
@@ -233,8 +237,8 @@ export default function WorkoutTrackerPage() {
     // --- Pre-fill form when set changes ---
     useEffect(() => {
         if (currentSet && !isResting) {
-            setReps(currentSet.target_reps || '');
-            setWeight(currentSet.target_weight || '');
+            setReps(currentSet.target_reps || '0');
+            setWeight(currentSet.target_weight || '0');
         }
     }, [currentSetIndex, currentGroupIndex, isResting, currentSet]);
 
@@ -257,7 +261,6 @@ export default function WorkoutTrackerPage() {
             order: (session.logged_sets?.length || 0) + 1,
             actual_reps: parseInt(reps) || 0,
             actual_weight: weight || '0',
-            // Update progress when logging set
             current_group_index: currentGroupIndex,
             current_set_index: isLastSetInGroup ? currentSetIndex : currentSetIndex + 1,
         };
@@ -265,7 +268,6 @@ export default function WorkoutTrackerPage() {
         try {
             const loggedSet = await logSet(setData);
             
-            // Update local session state
             setSession(prev => {
                 if (!prev) return null;
                 return { 
@@ -276,19 +278,14 @@ export default function WorkoutTrackerPage() {
                 };
             });
 
-            // --- Flow logic ---
             if (isLastSetInGroup) {
-                // FIX 3: Auto-advance to next group (unless it's the last group)
                 if (!isLastGroup) {
-                    // Automatically move to next group
                     await handleNextGroup();
                 } else {
-                    // Last group - clear form and wait for user to finish
-                    setReps('');
-                    setWeight('');
+                    setReps('0');
+                    setWeight('0');
                 }
             } else {
-                // Move to next set
                 const rest = currentSet.rest_time_after;
                 if (rest && rest > 0) {
                     setTargetRestTime(rest);
@@ -301,6 +298,54 @@ export default function WorkoutTrackerPage() {
         } catch (err) {
             console.error('Failed to log set:', err);
             setError('Failed to log set. Please try again.');
+        } finally {
+            setIsPerformingAction(false);
+        }
+    };
+
+    const handleLogCustomSet = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!session || !customExercise || isPerformingAction) {
+            return;
+        }
+
+        setIsPerformingAction(true);
+        setError('');
+
+        // Add exercise to list if not already there
+        if (!exercises.find(ex => ex.id === customExercise.id)) {
+            setExercises(prev => [...prev, customExercise]);
+        }
+
+        const setData: LoggedSetInput = {
+            session_id: session.id,
+            exercise: customExercise.id,
+            planned_set: undefined, // No planned set for custom exercises
+            order: (session.logged_sets?.length || 0) + 1,
+            actual_reps: parseInt(customReps) || 0,
+            actual_weight: customWeight || '0',
+        };
+
+        try {
+            const loggedSet = await logSet(setData);
+            
+            setSession(prev => {
+                if (!prev) return null;
+                return { 
+                    ...prev, 
+                    logged_sets: [...prev.logged_sets, loggedSet],
+                };
+            });
+
+            // Reset custom form
+            setCustomExercise(null);
+            setCustomReps('0');
+            setCustomWeight('0');
+            setShowCustomExercise(false);
+
+        } catch (err) {
+            console.error('Failed to log custom set:', err);
+            setError('Failed to log custom set. Please try again.');
         } finally {
             setIsPerformingAction(false);
         }
@@ -319,13 +364,11 @@ export default function WorkoutTrackerPage() {
         const newGroupIndex = currentGroupIndex + 1;
         
         try {
-            // Update progress on backend
             await updateSessionProgress(session.id, {
                 current_group_index: newGroupIndex,
                 current_set_index: 0
             });
 
-            // Update local state
             setCurrentGroupIndex(newGroupIndex);
             setCurrentSetIndex(0);
             setIsResting(false);
@@ -342,7 +385,6 @@ export default function WorkoutTrackerPage() {
     const handleFinishWorkout = async () => {
         if (!session || isFinishingRef.current) return;
         
-        // For last set, don't ask for confirmation
         const shouldConfirm = session.logged_sets.length === 0;
         
         if (shouldConfirm && !window.confirm('Are you sure you want to finish this workout?')) {
@@ -355,22 +397,18 @@ export default function WorkoutTrackerPage() {
         try {
             await finishWorkoutSession(session.id);
             
-            // Clear all state
             setSession(null);
             setPlan(null);
             setExercises([]);
             setCurrentGroupIndex(0);
             setCurrentSetIndex(0);
-            setReps('');
-            setWeight('');
+            setReps('0');
+            setWeight('0');
             setIsResting(false);
             setRestTimer(0);
             setTargetRestTime(0);
             
-            // Clear location.state to prevent accidental new sessions on back navigation
             navigate('.', { replace: true, state: null });
-            
-            // Navigate to history
             navigate('/history', { replace: true });
         } catch (err) {
             console.error('Failed to finish workout:', err);
@@ -391,22 +429,18 @@ export default function WorkoutTrackerPage() {
         try {
             await cancelWorkoutSession(session.id);
             
-            // Clear all state BEFORE navigating
             setSession(null);
             setPlan(null);
             setExercises([]);
             setCurrentGroupIndex(0);
             setCurrentSetIndex(0);
-            setReps('');
-            setWeight('');
+            setReps('0');
+            setWeight('0');
             setIsResting(false);
             setRestTimer(0);
             setTargetRestTime(0);
             
-            // Clear location.state to prevent accidental new sessions on back navigation
             navigate('.', { replace: true, state: null });
-            
-            // Navigate with replace to prevent back button issues
             navigate('/history', { replace: true });
         } catch (err) {
             console.error('Failed to cancel workout:', err);
@@ -422,8 +456,6 @@ export default function WorkoutTrackerPage() {
 
         setIsPerformingAction(true);
 
-        // FIX 2: Update backend when skipping rest
-        // This advances us to the next set on the backend
         try {
             const nextSetIndex = currentSetIndex + 1;
             
@@ -432,12 +464,10 @@ export default function WorkoutTrackerPage() {
                 current_set_index: nextSetIndex
             });
 
-            // Update local state
             setRestTimer(0);
             setIsResting(false);
             setTargetRestTime(0);
             
-            // Update session state
             setSession(prev => {
                 if (!prev) return null;
                 return {
@@ -448,7 +478,6 @@ export default function WorkoutTrackerPage() {
             });
         } catch (err) {
             console.error('Failed to skip rest:', err);
-            // Even if backend fails, update UI
             setRestTimer(0);
             setIsResting(false);
             setTargetRestTime(0);
@@ -494,7 +523,6 @@ export default function WorkoutTrackerPage() {
                     )}
                 </div>
                 
-                {/* Progress Ring */}
                 <div className="relative w-64 h-64 mb-8">
                     <svg className="w-full h-full transform -rotate-90">
                         <circle
@@ -585,7 +613,7 @@ export default function WorkoutTrackerPage() {
                     <p className="text-sm font-medium text-gray-600 mb-1">Target:</p>
                     <div className="text-lg text-gray-800">
                         <span className="font-bold">
-                            {currentSet.target_reps || 'N/A'} Reps
+                            {currentSet.target_reps || 'Not specified'} Reps
                         </span>
                         {currentSet.target_weight && (
                             <span className="font-bold ml-4">
@@ -611,7 +639,7 @@ export default function WorkoutTrackerPage() {
                                 type="number"
                                 value={reps}
                                 onChange={e => setReps(e.target.value)}
-                                placeholder="Reps"
+                                placeholder="0"
                                 className="w-full p-4 border-2 border-gray-300 rounded-md text-xl focus:border-indigo-500 outline-none"
                                 required
                                 min="0"
@@ -627,7 +655,7 @@ export default function WorkoutTrackerPage() {
                                 step="0.25"
                                 value={weight}
                                 onChange={e => setWeight(e.target.value)}
-                                placeholder="Weight"
+                                placeholder="0"
                                 className="w-full p-4 border-2 border-gray-300 rounded-md text-xl focus:border-indigo-500 outline-none"
                                 required
                                 min="0"
@@ -648,6 +676,92 @@ export default function WorkoutTrackerPage() {
                 {error && (
                     <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
                         <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Add Custom Exercise */}
+            <div className="mb-6">
+                {!showCustomExercise ? (
+                    <button
+                        onClick={() => setShowCustomExercise(true)}
+                        className="w-full p-4 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 font-medium"
+                    >
+                        + Add Custom Exercise
+                    </button>
+                ) : (
+                    <div className="p-6 bg-white shadow-lg rounded-lg">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Add Custom Exercise</h3>
+                            <button
+                                onClick={() => {
+                                    setShowCustomExercise(false);
+                                    setCustomExercise(null);
+                                    setCustomReps('0');
+                                    setCustomWeight('0');
+                                }}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {!customExercise ? (
+                            <ExerciseSelector onSelect={(ex) => setCustomExercise(ex)} />
+                        ) : (
+                            <form onSubmit={handleLogCustomSet} className="space-y-4">
+                                <div className="p-3 bg-indigo-50 rounded-md">
+                                    <p className="font-bold text-indigo-900">{customExercise.name}</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCustomExercise(null)}
+                                        className="text-sm text-indigo-600 hover:underline mt-1"
+                                    >
+                                        Change exercise
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Reps *
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={customReps}
+                                            onChange={e => setCustomReps(e.target.value)}
+                                            placeholder="0"
+                                            className="w-full p-3 border-2 border-gray-300 rounded-md focus:border-indigo-500 outline-none"
+                                            required
+                                            min="0"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Weight (kg) *
+                                        </label>
+                                        <input
+                                            type="number"
+                                            step="0.25"
+                                            value={customWeight}
+                                            onChange={e => setCustomWeight(e.target.value)}
+                                            placeholder="0"
+                                            className="w-full p-3 border-2 border-gray-300 rounded-md focus:border-indigo-500 outline-none"
+                                            required
+                                            min="0"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isPerformingAction}
+                                    className="w-full p-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                >
+                                    {isPerformingAction ? 'Logging...' : 'Log Custom Set'}
+                                </button>
+                            </form>
+                        )}
                     </div>
                 )}
             </div>

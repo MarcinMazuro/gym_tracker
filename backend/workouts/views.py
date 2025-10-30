@@ -1,4 +1,5 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.exceptions import ValidationError
@@ -12,6 +13,8 @@ from .serializers import (
     WorkoutSessionListSerializer,
     LoggedSetSerializer
 )
+
+User = get_user_model()
 
 # Custom Permission
 class IsOwner(permissions.BasePermission):
@@ -109,6 +112,37 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
             )
         
         serializer = self.get_serializer(active_session)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='user/(?P<username>[^/.]+)')
+    def user_sessions(self, request, username=None):
+        """
+        Get workout sessions for a specific user (only if their profile is public).
+        """
+        user = get_object_or_404(User, username=username)
+        
+        # Check if the user's profile is public
+        if not hasattr(user, 'profile') or not user.profile.is_public:
+            return Response(
+                {'detail': 'This user\'s workout history is not public.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        # Get completed sessions only for public viewing
+        sessions = WorkoutSession.objects.filter(
+
+            status='completed'
+        ).prefetch_related(
+            'logged_sets__exercise'
+        ).order_by('-date_started')
+        print("Fetched sessions:", sessions.count())
+        print("Fetched sessions:", sessions)
+        # Paginate
+        page = self.paginate_queryset(sessions.filter(owner="16"))
+        if page is not None:
+            serializer = WorkoutSessionListSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = WorkoutSessionListSerializer(sessions, many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch'])

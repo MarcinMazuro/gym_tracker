@@ -109,6 +109,10 @@ export const getMyWorkoutSessions = (params?: { page?: number; status?: string }
     return apiClient.get(`${API_URL}sessions/`, { params }).then(res => res.data);
 };
 
+export const getPublicWorkoutSessions = (username: string): Promise<{ results: WorkoutSession[]; count: number; next: string | null; previous: string | null }> => {
+    return apiClient.get(`${API_URL}sessions/user/${username}/`).then(res => res.data);
+};
+
 export const getActiveWorkoutSession = (): Promise<WorkoutSession> => {
     return apiClient.get(`${API_URL}sessions/active/`).then(res => res.data);
 };
