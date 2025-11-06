@@ -1,5 +1,4 @@
 import { apiClient } from "./client";
-import type { AxiosResponse } from "axios";
 
 export interface MuscleGroup {
     names: string[];
@@ -17,11 +16,11 @@ export interface PaginatedResponse<T> {
     results: T[];
 }
 
-export const getMuscleGroups = (): Promise<MuscleGroup> => {
-    return apiClient
-        .get<PaginatedResponse<MuscleGroupFromAPI>>("/exercises/muscle-groups/")
-        .then((response: AxiosResponse<PaginatedResponse<MuscleGroupFromAPI>>) => {
-            const names = response.data.results.map(group => group.name);
-            return { names };
-        });
+/**
+ * Fetches the list of all muscle groups.
+ * @returns A promise that resolves to an array of MuscleGroupFromAPI objects.
+ */
+export const getMuscleGroups = async (): Promise<MuscleGroupFromAPI[]> => {
+    const response = await apiClient.get<MuscleGroupFromAPI[]>("/exercises/muscle-groups/");
+    return response.data;
 }

@@ -31,16 +31,26 @@ function ExercisesListPage() {
 
     // (Omitted useEffect hooks for brevity - no changes there)
     useEffect(() => {
-        getMuscleGroups()
-            .then(data => setMuscleGroups(data.names))
-            .catch(() => setError('Failed to load muscle groups.'));
-    }, []);
+            getMuscleGroups()
+                .then(data => {
+                    // 'data' is [{ id: 1, name: 'Chest' }, ...]
+                    // We map it to ['Chest', 'Back', ...]
+                    const muscleGroupNames = data.map(muscleGroup => muscleGroup.name);
+                    setMuscleGroups(muscleGroupNames);
+                })
+                .catch(() => setError('Failed to load muscle groups.'));
+        }, []); // Empty dependency array ensures this runs once on mount
 
     useEffect(() => {
-        getCategory()
-            .then(data => setCategories(data.names))
-            .catch(() => setError('Failed to load categories.'));
-    }, []);
+            getCategory()
+                .then(data => {
+                    // 'data' is [{ category: 'Cardio' }, { category: 'Strength' }, ...]
+                    // We map it to ['Cardio', 'Strength', ...]
+                    const categoryNames = data.map(item => item.category);
+                    setCategories(categoryNames);
+                })
+                .catch(() => setError('Failed to load categories.'));
+        }, []);
 
     useEffect(() => {
         setIsLoading(true);

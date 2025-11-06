@@ -1,6 +1,6 @@
 import { apiClient } from "./client";
-import type { AxiosResponse } from "axios";
 
+// This interface is no longer used by the getCategory function
 export interface Category {
     names: string[];
 }
@@ -16,11 +16,11 @@ export interface PaginatedResponse<T> {
     results: T[];
 }
 
-export const getCategory = (): Promise<Category> => {
-    return apiClient
-        .get<PaginatedResponse<CategoryFromAPI>>("/exercises/categories/")
-        .then((response: AxiosResponse<PaginatedResponse<CategoryFromAPI>>) => {
-            const names = response.data.results.map(item => item.category);
-            return { names };
-        });
-}
+/**
+ * Fetches the list of all categories.
+ * @returns A promise that resolves to an array of CategoryFromAPI objects.
+ */
+export const getCategory = async (): Promise<CategoryFromAPI[]> => {
+    const response = await apiClient.get<CategoryFromAPI[]>('/exercises/categories/');
+    return response.data;
+};
