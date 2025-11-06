@@ -47,6 +47,7 @@ class MuscleGroupListView(generics.ListAPIView):
     queryset = MuscleGroup.objects.all().order_by('name')
     serializer_class = MuscleGroupSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Disable pagination for this endpoint
 
 class EquipmentListView(generics.ListAPIView):
     """
@@ -55,6 +56,7 @@ class EquipmentListView(generics.ListAPIView):
     queryset = Equipment.objects.all().order_by('name')
     serializer_class = EquipmentSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Disable pagination for this endpoint
 
 class CategoryListView(generics.ListAPIView):
     """
@@ -63,3 +65,4 @@ class CategoryListView(generics.ListAPIView):
     queryset = Exercise.objects.values_list('category', flat=True).distinct().order_by('category')
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Disable pagination for this endpoint
