@@ -1,7 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { getActiveWorkoutSession } from '@/api/workouts';
+import { getActiveWorkoutSession, cancelWorkoutSession } from '@/api/workouts';
 import type { WorkoutSession } from '@/api/workouts';
 
 export function MainLayout() {
@@ -71,8 +71,21 @@ export function MainLayout() {
         navigate('/login');
     };
 
-    const handleDismissBanner = () => {
-        setShowBanner(false);
+    const handleCancelWorkout = async () => {
+        if (!activeSession) return;
+        
+        const confirmed = window.confirm('Are you sure you want to cancel this workout? All progress will be lost.');
+        if (!confirmed) return;
+        
+        try {
+            await cancelWorkoutSession(activeSession.id);
+            setActiveSession(null);
+            setShowBanner(false);
+            window.dispatchEvent(new Event('workoutFinished'));
+        } catch (error) {
+            console.error('Failed to cancel workout:', error);
+            alert('Failed to cancel workout. Please try again.');
+        }
     };
 
     const handleResumeWorkout = () => {
@@ -217,11 +230,12 @@ export function MainLayout() {
                                 Continue Workout
                             </button>
                             <button
-                                onClick={handleDismissBanner}
-                                className="sm:hidden bg-green-700 text-white px-3 py-2 rounded-md hover:bg-green-800"
-                                aria-label="Dismiss"
+                                onClick={handleCancelWorkout}
+                                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+                                aria-label="Cancel workout"
+                                title="Cancel workout"
                             >
-                                ✕
+                                Cancel
                             </button>
                         </div>
                     </div>
