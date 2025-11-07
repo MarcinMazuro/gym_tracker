@@ -27,8 +27,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - SECRET_KEY=secret-key-for-development
-      - DEBUG=1
+      - SECRET_KEY=2)=&ezd$45e4ddf$wc-if2fxi^mh4=vluuw41_k&*sbqs#*1q6
+      - DEBUG=0
       - DB_NAME=gym_tracker_db
       - DB_USER=gym_user
       - DB_PASSWORD=gym_password
