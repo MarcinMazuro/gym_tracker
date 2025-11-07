@@ -18,6 +18,8 @@ import { getExercisesByIds } from '@/api/exercises';
 import type { Exercise } from '@/api/exercises';
 import { ExerciseSelector } from '@/components/workouts/ExerciseSelector';
 import { Spinner } from '@/components/common/Spinner';
+import { restTimerStorage } from '@/utils/restTimerStorage';
+import type { RestTimerState } from '@/utils/restTimerStorage';
 
 const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -84,6 +86,56 @@ export default function WorkoutTrackerPage() {
                         setError('Active session has no plan details.');
                         setIsLoading(false);
                         return;
+                    }
+
+                    const savedRestTimer = restTimerStorage.load();
+                    if (savedRestTimer && restTimerStorage.isForSession(savedRestTimer, activeSession.id)) {
+                        const remaining = restTimerStorage.getRemainingTime(savedRestTimer);
+                        
+                        if (remaining > 0) {
+                            // Rest period still active
+                            setTargetRestTime(savedRestTimer.targetDuration);
+                            setRestTimer(remaining);
+                            setIsResting(true);
+                            console.log(`Restored rest timer: ${remaining}s remaining of ${savedRestTimer.targetDuration}s`);
+                        } else {
+                            // Rest period has expired
+                            console.log('Rest period has expired during absence');
+                            restTimerStorage.clear();
+                            setIsResting(false);
+                        }
+                    } else {
+                        // EXISTING: Only calculate from logged sets if no saved timer
+                        if (activeSession.logged_sets && activeSession.logged_sets.length > 0) {
+                            const lastSet = activeSession.logged_sets[activeSession.logged_sets.length - 1];
+                            const lastSetTime = new Date(lastSet.completed_at).getTime();
+                            const now = Date.now();
+                            const elapsedSeconds = Math.floor((now - lastSetTime) / 1000);
+                            
+                            const lastSetPlan = activeSession.plan_details.groups
+                                .flatMap(g => g.sets)
+                                .find(s => s.id === lastSet.planned_set);
+                            
+                            if (lastSetPlan?.rest_time_after && lastSetPlan.rest_time_after > 0) {
+                                const remainingRest = lastSetPlan.rest_time_after - elapsedSeconds;
+                                const expectedNextSetIndex = (activeSession.logged_sets.length % activeSession.plan_details.groups[activeSession.current_group_index].sets.length);
+                                const actualCurrentSetIndex = activeSession.current_set_index;
+                                
+                                if (remainingRest > 0 && expectedNextSetIndex === actualCurrentSetIndex) {
+                                    setTargetRestTime(lastSetPlan.rest_time_after);
+                                    setRestTimer(remainingRest);
+                                    setIsResting(true);
+                                    
+                                    // Save to localStorage for future refreshes
+                                    restTimerStorage.save({
+                                        sessionId: activeSession.id,
+                                        startTime: lastSetTime,
+                                        targetDuration: lastSetPlan.rest_time_after,
+                                        exerciseName: currentExercise?.name
+                                    });
+                                }
+                            }
+                        }
                     }
 
                     setPlan(activeSession.plan_details);
@@ -279,6 +331,8 @@ export default function WorkoutTrackerPage() {
             });
 
             if (isLastSetInGroup) {
+                // Clear rest timer when moving to next group
+                restTimerStorage.clear();
                 if (!isLastGroup) {
                     await handleNextGroup();
                 } else {
@@ -291,6 +345,14 @@ export default function WorkoutTrackerPage() {
                     setTargetRestTime(rest);
                     setRestTimer(rest);
                     setIsResting(true);
+                    
+                    // NEW: Save rest timer to localStorage
+                    restTimerStorage.save({
+                        sessionId: session.id,
+                        startTime: Date.now(),
+                        targetDuration: rest,
+                        exerciseName: currentExercise.name
+                    });
                 }
                 setCurrentSetIndex(prev => prev + 1);
             }
@@ -382,6 +444,7 @@ export default function WorkoutTrackerPage() {
         }
     };
 
+    // 5. Update handleFinishWorkout to clear localStorage
     const handleFinishWorkout = async () => {
         if (!session || isFinishingRef.current) return;
         
@@ -396,6 +459,9 @@ export default function WorkoutTrackerPage() {
         
         try {
             await finishWorkoutSession(session.id);
+            
+            // NEW: Clear rest timer from localStorage
+            restTimerStorage.clear();
             
             setSession(null);
             setPlan(null);
@@ -419,6 +485,7 @@ export default function WorkoutTrackerPage() {
         }
     };
 
+    // 6. Update handleCancelWorkout to clear localStorage
     const handleCancelWorkout = async () => {
         if (!session || isFinishingRef.current) return;
         if (!window.confirm('Are you sure you want to cancel this workout? All progress will be saved.')) return;
@@ -428,6 +495,9 @@ export default function WorkoutTrackerPage() {
         
         try {
             await cancelWorkoutSession(session.id);
+            
+            // NEW: Clear rest timer from localStorage
+            restTimerStorage.clear();
             
             setSession(null);
             setPlan(null);
@@ -464,6 +534,9 @@ export default function WorkoutTrackerPage() {
                 current_set_index: nextSetIndex
             });
 
+            // NEW: Clear rest timer from localStorage
+            restTimerStorage.clear();
+            
             setRestTimer(0);
             setIsResting(false);
             setTargetRestTime(0);
@@ -478,6 +551,7 @@ export default function WorkoutTrackerPage() {
             });
         } catch (err) {
             console.error('Failed to skip rest:', err);
+            restTimerStorage.clear();
             setRestTimer(0);
             setIsResting(false);
             setTargetRestTime(0);
@@ -485,6 +559,7 @@ export default function WorkoutTrackerPage() {
             setIsPerformingAction(false);
         }
     };
+
 
     // --- Render Logic ---
     
@@ -513,6 +588,8 @@ export default function WorkoutTrackerPage() {
     // --- Render Rest Timer ---
     if (isResting) {
         const progress = targetRestTime > 0 ? ((targetRestTime - restTimer) / targetRestTime) * 100 : 0;
+        const savedTimer = restTimerStorage.load();
+        const elapsed = savedTimer ? restTimerStorage.getElapsedTime(savedTimer) : 0;
         
         return (
             <div className="flex flex-col items-center justify-center min-h-[80vh] text-center p-4">
@@ -520,6 +597,12 @@ export default function WorkoutTrackerPage() {
                     <p className="text-xl text-gray-500 uppercase tracking-wide">Rest Time</p>
                     {currentExercise && (
                         <p className="text-lg text-gray-600 mt-2">{currentExercise.name}</p>
+                    )}
+                    {/* NEW: Show elapsed time info */}
+                    {savedTimer && elapsed > targetRestTime && (
+                        <p className="text-sm text-orange-600 mt-2">
+                            ⚠️ Rest period ended {restTimerStorage.formatTime(elapsed - targetRestTime)} ago
+                        </p>
                     )}
                 </div>
                 
@@ -537,7 +620,7 @@ export default function WorkoutTrackerPage() {
                             cx="128"
                             cy="128"
                             r="120"
-                            stroke="#4f46e5"
+                            stroke={restTimer > 0 ? "#4f46e5" : "#f97316"}
                             strokeWidth="8"
                             fill="none"
                             strokeDasharray={`${2 * Math.PI * 120}`}
@@ -545,19 +628,30 @@ export default function WorkoutTrackerPage() {
                             className="transition-all duration-1000"
                         />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className="text-6xl font-bold font-mono">
-                            {formatTime(restTimer)}
+                            {restTimer > 0 ? restTimerStorage.formatTime(restTimer) : '00:00'}
                         </span>
+                        {restTimer === 0 && (
+                            <span className="text-sm text-orange-600 mt-2">Time's up!</span>
+                        )}
                     </div>
                 </div>
+                
+                {/* NEW: Show total elapsed time */}
+                {savedTimer && elapsed > 0 && (
+                    <div className="mb-4 text-sm text-gray-600">
+                        <p>Total rest time: {restTimerStorage.formatTime(elapsed)}</p>
+                        <p>Target: {restTimerStorage.formatTime(targetRestTime)}</p>
+                    </div>
+                )}
                 
                 <button
                     onClick={handleSkipRest}
                     disabled={isPerformingAction}
                     className="bg-indigo-600 text-white px-8 py-4 rounded-md text-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isPerformingAction ? 'Skipping...' : 'Skip Rest'}
+                    {isPerformingAction ? 'Continuing...' : (restTimer > 0 ? 'Skip Rest' : 'Continue Workout')}
                 </button>
             </div>
         );

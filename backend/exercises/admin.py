@@ -10,7 +10,7 @@ class ExerciseAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
     fieldsets = (
         (None, {
-            'fields': ('name', 'category', 'level', 'mechanic', 'force', 'equipment')
+            'fields': ('name', 'source_id', 'category', 'level', 'mechanic', 'force', 'equipment')
         }),
         ('Muscles', {
             'fields': ('primary_muscles', 'secondary_muscles')
