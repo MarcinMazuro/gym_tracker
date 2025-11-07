@@ -17,6 +17,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
+        //target: 'https://gym-tracker-backend-357760170579.europe-central2.run.app/api/v1',
         target: 'http://localhost:8000',
         changeOrigin: true,
       }

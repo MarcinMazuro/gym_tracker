@@ -18,6 +18,14 @@ import { getExercisesByIds } from '@/api/exercises';
 import type { Exercise } from '@/api/exercises';
 import { ExerciseSelector } from '@/components/workouts/ExerciseSelector';
 import { Spinner } from '@/components/common/Spinner';
+import { restTimerStorage } from '@/utils/restTimerStorage';
+import { 
+    scheduleRestNotification, 
+    cancelRestNotification, 
+    showRestExpiredNotification,
+    requestNotificationPermission,
+    registerServiceWorker 
+} from '@/utils/restTimerNotifications';
 
 const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -57,11 +65,33 @@ export default function WorkoutTrackerPage() {
     const [restTimer, setRestTimer] = useState(0);
     const [targetRestTime, setTargetRestTime] = useState(0);
 
+    // --- Notification State ---
+    const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
     // --- Action State ---
     const [isPerformingAction, setIsPerformingAction] = useState(false);
 
     // Use ref to prevent multiple finish calls
     const isFinishingRef = useRef(false);
+
+    // --- Request notification permission and register service worker on mount ---
+    useEffect(() => {
+        const initializeNotifications = async () => {
+            // Register service worker first
+            await registerServiceWorker();
+            
+            // Then request notification permission
+            const granted = await requestNotificationPermission();
+            setNotificationsEnabled(granted);
+            if (granted) {
+                console.log('✅ Notification permission granted');
+            } else {
+                console.log('⚠️ Notification permission denied');
+            }
+        };
+        
+        initializeNotifications();
+    }, []);
 
     // --- Initialization: Check for active session or start new one ---
     useEffect(() => {
@@ -114,26 +144,86 @@ export default function WorkoutTrackerPage() {
                         setWeight(currentSet.target_weight || '0');
                     }
 
-                    // Calculate rest timer from last logged set if applicable
-                    if (activeSession.logged_sets && activeSession.logged_sets.length > 0) {
-                        const lastSet = activeSession.logged_sets[activeSession.logged_sets.length - 1];
-                        const lastSetTime = new Date(lastSet.completed_at).getTime();
-                        const now = Date.now();
-                        const elapsedSeconds = Math.floor((now - lastSetTime) / 1000);
+                    // Check for persisted rest timer FIRST
+                    const savedRestTimer = restTimerStorage.load();
+                    if (savedRestTimer && restTimerStorage.isForSession(savedRestTimer, activeSession.id)) {
+                        const remaining = restTimerStorage.getRemainingTime(savedRestTimer);
+                        const elapsed = restTimerStorage.getElapsedTime(savedRestTimer);
                         
-                        const lastSetPlan = activeSession.plan_details.groups
-                            .flatMap(g => g.sets)
-                            .find(s => s.id === lastSet.planned_set);
-                        
-                        if (lastSetPlan?.rest_time_after && lastSetPlan.rest_time_after > 0) {
-                            const remainingRest = lastSetPlan.rest_time_after - elapsedSeconds;
-                            const expectedNextSetIndex = (activeSession.logged_sets.length % activeSession.plan_details.groups[activeSession.current_group_index].sets.length);
-                            const actualCurrentSetIndex = activeSession.current_set_index;
+                        if (remaining > 0) {
+                            // Rest period still active
+                            setTargetRestTime(savedRestTimer.targetDuration);
+                            setRestTimer(remaining);
+                            setIsResting(true);
                             
-                            if (remainingRest > 0 && expectedNextSetIndex === actualCurrentSetIndex) {
-                                setTargetRestTime(lastSetPlan.rest_time_after);
-                                setRestTimer(remainingRest);
-                                setIsResting(true);
+                            // Schedule notification for remaining time
+                            if (notificationsEnabled) {
+                                await scheduleRestNotification(
+                                    remaining, 
+                                    savedRestTimer.exerciseName || 'Exercise'
+                                );
+                            }
+                            
+                            console.log(`✅ Restored rest timer: ${remaining}s remaining of ${savedRestTimer.targetDuration}s`);
+                        } else {
+                            // Rest period has expired
+                            const overtime = elapsed - savedRestTimer.targetDuration;
+                            
+                            console.log(`⏰ Rest period expired ${overtime}s ago`);
+                            
+                            // Show notification that timer expired (if more than 10s)
+                            if (notificationsEnabled && overtime > 10) {
+                                showRestExpiredNotification(
+                                    savedRestTimer.exerciseName || 'Exercise',
+                                    overtime
+                                );
+                            }
+                            
+                            // Still show the timer UI with 0:00 and overtime info
+                            setTargetRestTime(savedRestTimer.targetDuration);
+                            setRestTimer(0);
+                            setIsResting(true);
+                            
+                            // Don't clear immediately - let user see the overtime message
+                        }
+                    } else {
+                        // No saved timer - calculate from logged sets
+                        if (activeSession.logged_sets && activeSession.logged_sets.length > 0) {
+                            const lastSet = activeSession.logged_sets[activeSession.logged_sets.length - 1];
+                            const lastSetTime = new Date(lastSet.completed_at).getTime();
+                            const now = Date.now();
+                            const elapsedSeconds = Math.floor((now - lastSetTime) / 1000);
+                            
+                            const lastSetPlan = activeSession.plan_details.groups
+                                .flatMap(g => g.sets)
+                                .find(s => s.id === lastSet.planned_set);
+                            
+                            if (lastSetPlan?.rest_time_after && lastSetPlan.rest_time_after > 0) {
+                                const remainingRest = lastSetPlan.rest_time_after - elapsedSeconds;
+                                const expectedNextSetIndex = (activeSession.logged_sets.length % activeSession.plan_details.groups[activeSession.current_group_index].sets.length);
+                                const actualCurrentSetIndex = activeSession.current_set_index;
+                                
+                                if (remainingRest > 0 && expectedNextSetIndex === actualCurrentSetIndex) {
+                                    setTargetRestTime(lastSetPlan.rest_time_after);
+                                    setRestTimer(remainingRest);
+                                    setIsResting(true);
+                                    
+                                    // Save to localStorage for future refreshes
+                                    restTimerStorage.save({
+                                        sessionId: activeSession.id,
+                                        startTime: lastSetTime,
+                                        targetDuration: lastSetPlan.rest_time_after,
+                                        exerciseName: exercises.find(e => e.id === lastSet.exercise)?.name
+                                    });
+                                    
+                                    // Schedule notification
+                                    if (notificationsEnabled) {
+                                        await scheduleRestNotification(
+                                            remainingRest,
+                                            exercises.find(e => e.id === lastSet.exercise)?.name || 'Exercise'
+                                        );
+                                    }
+                                }
                             }
                         }
                     }
@@ -195,19 +285,22 @@ export default function WorkoutTrackerPage() {
         };
 
         initializeWorkout();
-    }, []);
+    }, [notificationsEnabled]); // Re-run if notification permission changes
 
     // --- Rest Timer Countdown ---
     useEffect(() => {
-        if (!isResting || restTimer <= 0) {
-            if (isResting && restTimer <= 0) {
-                setIsResting(false);
-            }
-            return;
-        }
+        if (!isResting || restTimer <= 0) return;
 
         const interval = setInterval(() => {
-            setRestTimer(prev => prev - 1);
+            setRestTimer(prev => {
+                const newValue = prev - 1;
+                if (newValue <= 0) {
+                    // Timer just reached 0
+                    console.log('⏰ Rest timer completed!');
+                    return 0;
+                }
+                return newValue;
+            });
         }, 1000);
 
         return () => clearInterval(interval);
@@ -279,6 +372,10 @@ export default function WorkoutTrackerPage() {
             });
 
             if (isLastSetInGroup) {
+                // Cancel any pending notification
+                await cancelRestNotification();
+                restTimerStorage.clear();
+                
                 if (!isLastGroup) {
                     await handleNextGroup();
                 } else {
@@ -291,6 +388,20 @@ export default function WorkoutTrackerPage() {
                     setTargetRestTime(rest);
                     setRestTimer(rest);
                     setIsResting(true);
+                    
+                    // Save to localStorage
+                    restTimerStorage.save({
+                        sessionId: session.id,
+                        startTime: Date.now(),
+                        targetDuration: rest,
+                        exerciseName: currentExercise.name
+                    });
+
+                    // Schedule notification
+                    if (notificationsEnabled) {
+                        await scheduleRestNotification(rest, currentExercise.name);
+                        console.log(`🔔 Rest notification scheduled for ${rest}s`);
+                    }
                 }
                 setCurrentSetIndex(prev => prev + 1);
             }
@@ -397,6 +508,15 @@ export default function WorkoutTrackerPage() {
         try {
             await finishWorkoutSession(session.id);
             
+            // Cancel any pending notification
+            await cancelRestNotification();
+            
+            // Clear rest timer
+            restTimerStorage.clear();
+            
+            // Dispatch event for MainLayout to clear banner
+            window.dispatchEvent(new Event('workoutFinished'));
+            
             setSession(null);
             setPlan(null);
             setExercises([]);
@@ -428,6 +548,15 @@ export default function WorkoutTrackerPage() {
         
         try {
             await cancelWorkoutSession(session.id);
+            
+            // Cancel any pending notification
+            await cancelRestNotification();
+            
+            // Clear rest timer
+            restTimerStorage.clear();
+            
+            // Dispatch event for MainLayout
+            window.dispatchEvent(new Event('workoutFinished'));
             
             setSession(null);
             setPlan(null);
@@ -464,6 +593,11 @@ export default function WorkoutTrackerPage() {
                 current_set_index: nextSetIndex
             });
 
+            // Cancel notification
+            await cancelRestNotification();
+            
+            // Clear rest timer
+            restTimerStorage.clear();
             setRestTimer(0);
             setIsResting(false);
             setTargetRestTime(0);
@@ -478,6 +612,8 @@ export default function WorkoutTrackerPage() {
             });
         } catch (err) {
             console.error('Failed to skip rest:', err);
+            await cancelRestNotification();
+            restTimerStorage.clear();
             setRestTimer(0);
             setIsResting(false);
             setTargetRestTime(0);
@@ -512,7 +648,10 @@ export default function WorkoutTrackerPage() {
 
     // --- Render Rest Timer ---
     if (isResting) {
-        const progress = targetRestTime > 0 ? ((targetRestTime - restTimer) / targetRestTime) * 100 : 0;
+        const progress = targetRestTime > 0 && restTimer > 0
+            ? ((targetRestTime - restTimer) / targetRestTime) * 100 
+            : 100;
+        const isComplete = restTimer === 0;
         
         return (
             <div className="flex flex-col items-center justify-center min-h-[80vh] text-center p-4">
@@ -520,6 +659,11 @@ export default function WorkoutTrackerPage() {
                     <p className="text-xl text-gray-500 uppercase tracking-wide">Rest Time</p>
                     {currentExercise && (
                         <p className="text-lg text-gray-600 mt-2">{currentExercise.name}</p>
+                    )}
+                    {isComplete && (
+                        <p className="text-base text-green-600 mt-2 font-semibold animate-pulse">
+                            ✅ Rest complete! Ready to continue
+                        </p>
                     )}
                 </div>
                 
@@ -537,7 +681,7 @@ export default function WorkoutTrackerPage() {
                             cx="128"
                             cy="128"
                             r="120"
-                            stroke="#4f46e5"
+                            stroke={isComplete ? "#10b981" : "#4f46e5"}
                             strokeWidth="8"
                             fill="none"
                             strokeDasharray={`${2 * Math.PI * 120}`}
@@ -545,19 +689,39 @@ export default function WorkoutTrackerPage() {
                             className="transition-all duration-1000"
                         />
                     </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-6xl font-bold font-mono">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className={`text-6xl font-bold font-mono ${isComplete ? 'text-green-600' : ''}`}>
                             {formatTime(restTimer)}
                         </span>
+                        {isComplete && (
+                            <span className="text-lg text-green-600 mt-2 font-semibold">
+                                Time's up!
+                            </span>
+                        )}
                     </div>
                 </div>
+                
+                {targetRestTime > 0 && restTimer > 0 && (
+                    <div className="mb-6 text-sm text-gray-600 space-y-1">
+                        <p>Elapsed: <span className="font-semibold">{formatTime(targetRestTime - restTimer)}</span></p>
+                        <p>Target: <span className="font-semibold">{formatTime(targetRestTime)}</span></p>
+                    </div>
+                )}
+                
+                {!notificationsEnabled && (
+                    <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md max-w-md">
+                        <p className="text-sm text-yellow-800">
+                            💡 Enable notifications to get alerted when rest time ends
+                        </p>
+                    </div>
+                )}
                 
                 <button
                     onClick={handleSkipRest}
                     disabled={isPerformingAction}
                     className="bg-indigo-600 text-white px-8 py-4 rounded-md text-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isPerformingAction ? 'Skipping...' : 'Skip Rest'}
+                    {isPerformingAction ? 'Continuing...' : 'Continue Workout'}
                 </button>
             </div>
         );
@@ -591,6 +755,20 @@ export default function WorkoutTrackerPage() {
                     Session will auto-save your progress ✓
                 </p>
             </div>
+
+            {/* Notification Status Banner */}
+            {!notificationsEnabled && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                        🔔 <button 
+                            onClick={() => requestNotificationPermission().then(setNotificationsEnabled)}
+                            className="underline font-semibold hover:text-blue-900"
+                        >
+                            Enable notifications
+                        </button> to get alerted when rest time ends
+                    </p>
+                </div>
+            )}
 
             {/* Current Set Card */}
             <div className="my-8 p-6 bg-white shadow-2xl rounded-lg">

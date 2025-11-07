@@ -18,12 +18,13 @@ services:
   backend:
     build:
       context: ..  # Set context to the project root (one level up)
-      dockerfile: docker/backend.Dockerfile # Path to Dockerfile from the context
-    command: sh -c "python backend/manage.py makemigrations 
-      && python backend/manage.py migrate 
-      && python backend/manage.py load_exercises backend/exercises/fixtures/exercises.json 
-      && python backend/manage.py runserver 0.0.0.0:8000"
-      - ..:/app # Mount the entire project root into the container
+      dockerfile: docker/backend.dev.Dockerfile # Path to Dockerfile from the context
+    command: sh -c "python manage.py makemigrations 
+      && python manage.py migrate 
+      && python manage.py load_exercises exercises/fixtures/exercises.json 
+      && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ../backend:/app # Mount the backend directory into the container
     ports:
       - "8000:8000"
     environment:
