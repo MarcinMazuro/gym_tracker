@@ -243,10 +243,16 @@ docker/postgres_data/
 
 # Firebase
 frontend/.firebase/
+frontend/.firebaserc
+frontend/firebase.json
 .firebaserc
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+# Vite
+frontend/.vite/
+.vite/
 
 # PostgreSQL dumps
 *.sql
