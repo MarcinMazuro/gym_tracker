@@ -285,7 +285,7 @@ export default function WorkoutTrackerPage() {
         };
 
         initializeWorkout();
-    }, [notificationsEnabled]); // Re-run if notification permission changes
+    }, []); // Re-run if notification permission changes
 
     // --- Rest Timer Countdown ---
     useEffect(() => {
@@ -403,7 +403,7 @@ export default function WorkoutTrackerPage() {
                         console.log(`🔔 Rest notification scheduled for ${rest}s`);
                     }
                 }
-                setCurrentSetIndex(prev => prev + 1);
+                //setCurrentSetIndex(prev => prev + 1);
             }
 
         } catch (err) {
@@ -586,13 +586,6 @@ export default function WorkoutTrackerPage() {
         setIsPerformingAction(true);
 
         try {
-            const nextSetIndex = currentSetIndex + 1;
-            
-            await updateSessionProgress(session.id, {
-                current_group_index: currentGroupIndex,
-                current_set_index: nextSetIndex
-            });
-
             // Cancel notification
             await cancelRestNotification();
             
@@ -602,14 +595,7 @@ export default function WorkoutTrackerPage() {
             setIsResting(false);
             setTargetRestTime(0);
             
-            setSession(prev => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    current_group_index: currentGroupIndex,
-                    current_set_index: nextSetIndex
-                };
-            });
+            setCurrentSetIndex(session.current_set_index);
         } catch (err) {
             console.error('Failed to skip rest:', err);
             await cancelRestNotification();
@@ -621,7 +607,6 @@ export default function WorkoutTrackerPage() {
             setIsPerformingAction(false);
         }
     };
-
     // --- Render Logic ---
     
     if (isLoading) {
@@ -728,9 +713,21 @@ export default function WorkoutTrackerPage() {
     }
 
     if (!plan || !session || !currentGroup || !currentSet || !currentExercise) {
+        let missing = '';
+        if (!plan) missing = 'Workout plan';
+        else if (!session) missing = 'Workout session';
+        else if (!currentGroup) missing = 'Current group';
+        else if (!currentSet) missing = 'Current set';
+        else if (!currentExercise) missing = 'Current exercise';
+
         return (
             <div className="p-4 text-center">
                 <p className="text-gray-500 mb-4">Could not load workout details.</p>
+                <p>
+                    {missing
+                        ? `Missing: ${missing}.`
+                        : 'We could not find your workout session or plan details. Please try again.'}
+                </p>
                 <button
                     onClick={() => navigate('/workouts')}
                     className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700"
@@ -740,6 +737,7 @@ export default function WorkoutTrackerPage() {
             </div>
         );
     }
+
 
     // --- Render Active Workout ---
     return (
