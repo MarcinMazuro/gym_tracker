@@ -342,18 +342,3 @@ REST_AUTH = {
     # Custom serializer for password reset
     'PASSWORD_RESET_SERIALIZER': 'accounts.serializers.CustomPasswordResetSerializer',
 }
-
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',  # Zmienić na 'DEBUG' w razie potrzeby bardziej szczegółowych logów
-    },
-}
