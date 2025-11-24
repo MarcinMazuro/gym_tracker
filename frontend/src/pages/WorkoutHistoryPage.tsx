@@ -8,14 +8,12 @@ export default function WorkoutHistoryPage() {
     const [sessions, setSessions] = useState<WorkoutSession[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [filter, setFilter] = useState<'all' | 'completed'>('all');
+    const [filter] = useState<'all' | 'completed'>('all');
     
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalCount, setTotalCount] = useState(0);
-    const [nextPage, setNextPage] = useState<string | null>(null);
-    const [previousPage, setPreviousPage] = useState<string | null>(null);
     const itemsPerPage = 10;
 
     useEffect(() => {
@@ -36,8 +34,6 @@ export default function WorkoutHistoryPage() {
                 setSessions(data.results);
                 setTotalCount(data.count);
                 setTotalPages(Math.ceil(data.count / itemsPerPage));
-                setNextPage(data.next);
-                setPreviousPage(data.previous);
             })
             .catch(() => {
                 setError('Failed to fetch workout history.');

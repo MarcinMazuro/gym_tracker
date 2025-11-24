@@ -74,35 +74,36 @@ class WorkoutSessionViewSet(viewsets.ModelViewSet):
             'plan__groups__sets__exercise'
         ).order_by('-date_started')
 
-    def perform_create(self, serializer):
+    def create(self, request, *args, **kwargs):
         """
-        Atomically create a new workout session, preventing duplicates
-        using a database constraint.
+        Atomically get an existing active session or create a new one.
+        This prevents race conditions where multiple sessions could be created.
         """
-        user = self.request.user
-        try:
-            with transaction.atomic():
-                # If an old session is 'in_progress', auto-cancel it.
-                # This is now safe from race conditions.
-                WorkoutSession.objects.filter(
-                    owner=user,
-                    status='in_progress'
-                ).update(status='cancelled', date_finished=timezone.now())
-
-                # Proceed to save the new session.
-                # If another request created a session in the meantime,
-                # the UniqueConstraint will raise an IntegrityError.
-                serializer.save(owner=user)
-        except IntegrityError:
-            # This block runs if the UniqueConstraint was violated.
-            # It means a concurrent request successfully created an active session.
-            # We find that session and return it to the client.
-            active_session = WorkoutSession.objects.get(owner=user, status='in_progress')
-            session_serializer = self.get_serializer(active_session)
-            raise ValidationError({
-                'detail': 'An active session already exists.',
-                'active_session': session_serializer.data
-            })
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        user = request.user
+        
+        # get_or_create is an atomic operation.
+        # It will either find the existing session with status='in_progress'
+        # or create a new one using the data from the serializer.
+        session, created = WorkoutSession.objects.get_or_create(
+            owner=user,
+            status='in_progress',
+            defaults=serializer.validated_data
+        )
+        
+        # Re-serialize the instance we got from the database
+        # to ensure the response data is complete.
+        output_serializer = self.get_serializer(session)
+        
+        if created:
+            # If a new session was created, return 201 CREATED.
+            headers = self.get_success_headers(output_serializer.data)
+            return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            # If an existing session was found, return 200 OK.
+            return Response(output_serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'])
     def active(self, request):

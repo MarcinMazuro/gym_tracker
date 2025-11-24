@@ -15,6 +15,7 @@ import sys
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+import ast
 
 load_dotenv()
 
@@ -26,16 +27,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-_ue-1y##0dfy(*)7mvyp0j=o8tpdemlaa^n_mup+(j%dv43r+='
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # Set to True for development to see detailed error pages
+DEBUG = False  # Set to True for development to see detailed error pages
 
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+FRONTEND_URL = os.getenv('FRONTEND_URL')
 
-ALLOWED_HOSTS = ["*"]
-
-
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(";") if os.getenv("CSRF_TRUSTED_ORIGINS") else []
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 # Application definition
 
 INSTALLED_APPS = [
@@ -67,8 +69,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -166,6 +169,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -249,16 +254,9 @@ SIMPLE_JWT = {
 # CORS configuration for allowing frontend to access the API
 # CORS = Cross-Origin Resource Sharing
 # Allows JavaScript from these origins to make requests to our API
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",      # React development server
-#     "http://127.0.0.1:3000",      # Alternative localhost
-#     "http://localhost:19006",     # React Native Expo
-#     'http://localhost:5173',
-#     'http://127.0.0.1:5173',
-# ]
+#CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(";") if os.getenv("CORS_ALLOWED_ORIGINS") else []
 
 CORS_ALLOW_ALL_ORIGINS = True
-
 # Allow cookies/auth headers in cross-origin requests
 CORS_ALLOW_CREDENTIALS = True
 

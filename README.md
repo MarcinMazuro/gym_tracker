@@ -2,6 +2,11 @@
 
 Gym Tracker is a full-stack web application designed to help users plan, track, and analyze their gym workouts. It features a comprehensive exercise database, a highly customizable workout builder, and a persistent, real-time session tracker.
 
+
+## Demonstration of the main features
+https://github.com/user-attachments/assets/336755ef-4005-41d4-bd39-d09b76c9cfae
+
+
 ## Features
 
 *   **User Authentication**: Secure user registration and login system using JWT tokens.
@@ -10,6 +15,22 @@ Gym Tracker is a full-stack web application designed to help users plan, track, 
 *   **Live & Persistent Session Tracking**: An interactive interface guides you through your workout. Log sets, reps, and weights in real-time. The system automatically handles rest timers and moves you to the next exercise. If you close the browser, your active session is saved on the server, allowing you to resume exactly where you left off.
 *   **Detailed Workout History**: Review completed workouts, analyze your performance over time, and track your progress.
 *   **User Profiles**: Manage your profile and view public workout histories of other users.
+
+## Deployment
+
+This project is deployed to Google Cloud Platform (GCP):
+
+- Backend: deployed on Cloud Run (serverless containers) serving the Django REST API.
+- Database: managed PostgreSQL instance hosted in Cloud SQL.
+- Frontend: React app hosted with Firebase Hosting.
+
+Live site: https://gen-lang-client-0244829277.web.app/
+
+Notes / useful links:
+
+- Cloud Run: https://cloud.google.com/run
+- Cloud SQL (Postgres): https://cloud.google.com/sql
+- Firebase Hosting: https://firebase.google.com/products/hosting
 
 ## How Workout Tracking Works (Server-Side)
 
@@ -38,6 +59,7 @@ This server-side state management ensures that workout data is always consistent
 *   **Frontend**: React, TypeScript, Vite
 *   **Database**: PostgreSQL
 *   **Containerization**: Docker, Docker Compose
+
 
 ## Prerequisites
 
