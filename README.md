@@ -2,6 +2,11 @@
 
 Gym Tracker is a full-stack web application designed to help users plan, track, and analyze their gym workouts. It features a comprehensive exercise database, a highly customizable workout builder, and a persistent, real-time session tracker.
 
+
+## Demonstration of the main features
+https://github.com/user-attachments/assets/336755ef-4005-41d4-bd39-d09b76c9cfae
+
+
 ## Features
 
 *   **User Authentication**: Secure user registration and login system using JWT tokens.
