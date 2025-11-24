@@ -11,6 +11,22 @@ Gym Tracker is a full-stack web application designed to help users plan, track, 
 *   **Detailed Workout History**: Review completed workouts, analyze your performance over time, and track your progress.
 *   **User Profiles**: Manage your profile and view public workout histories of other users.
 
+## Deployment
+
+This project is deployed to Google Cloud Platform (GCP):
+
+- Backend: deployed on Cloud Run (serverless containers) serving the Django REST API.
+- Database: managed PostgreSQL instance hosted in Cloud SQL.
+- Frontend: React app hosted with Firebase Hosting.
+
+Live site: https://gen-lang-client-0244829277.web.app/
+
+Notes / useful links:
+
+- Cloud Run: https://cloud.google.com/run
+- Cloud SQL (Postgres): https://cloud.google.com/sql
+- Firebase Hosting: https://firebase.google.com/products/hosting
+
 ## How Workout Tracking Works (Server-Side)
 
 The backend is designed to be robust and stateful, ensuring that a user's workout progress is never lost, even if they close the browser or lose connection.
@@ -38,6 +54,7 @@ This server-side state management ensures that workout data is always consistent
 *   **Frontend**: React, TypeScript, Vite
 *   **Database**: PostgreSQL
 *   **Containerization**: Docker, Docker Compose
+
 
 ## Prerequisites
 
